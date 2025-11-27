@@ -10,5 +10,6 @@
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32c6"
   },
-  "idf.flashType": "JTAG"
+  "idf.flashType": "JTAG",
+  "C_Cpp.default.compilerPath": "/usr/bin/clang"
 }
