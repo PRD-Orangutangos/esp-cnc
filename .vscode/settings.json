@@ -1,12 +1,12 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
-  "idf.espIdfPath": "/Users/ponchik/esp/esp-idf",
-  "idf.pythonInstallPath": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+  "idf.espIdfPath": "/home/dmitrii/esp/esp-idf",
+  "idf.pythonInstallPath": "/usr/bin/python",
   "idf.openOcdConfigs": [
     "board/esp32c6-builtin.cfg"
   ],
-  "idf.port": "/dev/tty.usbmodem101",
-  "idf.toolsPath": "/Users/ponchik/.espressif",
+  "idf.port": "/dev/ttyACM0",
+  "idf.toolsPath": "/home/dmitrii/.espressif",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32c6"
   },

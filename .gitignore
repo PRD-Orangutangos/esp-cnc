@@ -1,3 +1,14 @@
+
+# ESP-IDF build artifacts
 build/
 sdkconfig
 sdkconfig.old
+
+# IDF Component Manager — НЕ коммитьте эти файлы!
+managed_components/
+dependencies.lock
+
+# Кэш и IDE
+.vscode/cpptools/
+.vscode/cmake-kits.json
+.vscode/cmake-variants.json
