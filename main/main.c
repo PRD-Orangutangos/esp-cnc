@@ -5,7 +5,8 @@
 #include "esp_event.h"
 #include <esp_http_server.h>
 #include "html/html_pages.h"
-
+#include <time.h>
+#include <sys/time.h>
 static const char *TAG = "esp-cnc";
 
 static esp_err_t any_handler(httpd_req_t *req)
@@ -15,13 +16,83 @@ static esp_err_t any_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-
 static const httpd_uri_t any = {
     .uri       = "/",
-    .method    = HTTP_ANY,
+    .method    = HTTP_GET,
     .handler   = any_handler,
-    .user_ctx  = html_page,
+    .user_ctx  = main_page,
 };
+
+static esp_err_t cmd1_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "command1!");
+    return httpd_resp_send(req, NULL, 0);
+}
+
+static esp_err_t cmd2_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "command2!");
+    return httpd_resp_send(req, NULL, 0);
+}
+
+static esp_err_t cmd3_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "command3!");
+    return httpd_resp_send(req, NULL, 0);
+}
+
+
+
+static const httpd_uri_t cmd1 = {
+    .uri       = "/cmd1",
+    .method    = HTTP_GET,
+    .handler   = cmd1_handler,
+    .user_ctx  = NULL,
+};
+
+static const httpd_uri_t cmd2 = {
+    .uri       = "/cmd2",
+    .method    = HTTP_GET,
+    .handler   = cmd2_handler,
+    .user_ctx  = NULL,
+};
+
+static const httpd_uri_t cmd3 = {
+    .uri       = "/cmd3",
+    .method    = HTTP_GET,
+    .handler   = cmd3_handler,
+    .user_ctx  = NULL,
+};
+
+// static esp_err_t sse_handler(httpd_req_t *req)
+// {
+//     httpd_resp_set_type(req, "text/event-stream");
+//     httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
+//     httpd_resp_set_hdr(req, "Connection", "keep-alive");
+
+//     char sse_data[64];
+//     while (1) {
+//         struct timeval tv;
+//         gettimeofday(&tv, NULL); // Get the current time
+//         int64_t time_since_boot = tv.tv_sec; // Time since boot in seconds
+//         esp_err_t err;
+//         int len = snprintf(sse_data, sizeof(sse_data), "data: Time since boot: %" PRIi64 " seconds\n\n", time_since_boot);
+//         if ((err = httpd_resp_send_chunk(req, sse_data, len)) != ESP_OK) {
+//             ESP_LOGE(TAG, "Failed to send sse data (returned %02X)", err);
+//             break;
+//         }
+//         vTaskDelay(pdMS_TO_TICKS(1000)); // Send data every second
+//     }
+
+//     httpd_resp_send_chunk(req, NULL, 0); // End response
+//     return ESP_OK;
+// }
+// static const httpd_uri_t sse = {
+//     .uri       = "/sse",
+//     .method    = HTTP_GET,
+//     .handler   = sse_handler,
+//     .user_ctx  = NULL
+// };
 
 static httpd_handle_t start_webserver(void)
 {
@@ -33,6 +104,10 @@ static httpd_handle_t start_webserver(void)
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &any);
+        httpd_register_uri_handler(server, &cmd1);
+        httpd_register_uri_handler(server, &cmd2);
+        httpd_register_uri_handler(server, &cmd3);
+        // httpd_register_uri_handler(server, &sse);
         return server;
     }
 
@@ -51,7 +126,7 @@ void app_main(void)
 
     server = start_webserver();
 
-    while (server) {
-        vTaskDelay(pdMS_TO_TICKS(2000));
-    }
+    // while (server) {
+    //     vTaskDelay(pdMS_TO_TICKS(2000));
+    // }
 }
