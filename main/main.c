@@ -187,8 +187,10 @@ void clear_ws_client(int fd) {
     xSemaphoreGive(ws_mutex);
 }
 
+int counter = 0;
+
 void ws_sender_task(void *pvParameter) {
-    int counter = 0;
+ 
     
     while (1) {
         xSemaphoreTake(ws_mutex, portMAX_DELAY);
@@ -220,7 +222,7 @@ void ws_sender_task(void *pvParameter) {
                 xSemaphoreGive(ws_mutex);
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -260,9 +262,33 @@ static esp_err_t ws_handler(httpd_req_t *req) {
             // Обработка команд
              if (strcmp((char*)buf, "cmd1") == 0) {
                 ESP_LOGI(TAG, "Команда 1 получена");
-            }
+                // counter++;
+                // char data[12];
+                // snprintf(data, sizeof(data), "%d", counter);
+                
+                // httpd_ws_frame_t ws_pkt = {
+                //     .type = HTTPD_WS_TYPE_TEXT,
+                //     .len = strlen(data),
+                //     .payload = (uint8_t*)data
+                // };
+                
+                // // Попытка отправки
+                // esp_err_t ret = httpd_ws_send_frame_async(server, ws_client_fd, &ws_pkt);
+                }
             if (strcmp((char*)buf, "cmd2") == 0) {
                 ESP_LOGI(TAG, "Команда 2 получена");
+                // counter--;
+                // char data[12];
+                // snprintf(data, sizeof(data), "%d", counter);
+                
+                // httpd_ws_frame_t ws_pkt = {
+                //     .type = HTTPD_WS_TYPE_TEXT,
+                //     .len = strlen(data),
+                //     .payload = (uint8_t*)data
+                // };
+                
+                // // Попытка отправки
+                // esp_err_t ret = httpd_ws_send_frame_async(server, ws_client_fd, &ws_pkt);
             }
             if (strcmp((char*)buf, "cmd3") == 0) {
                 ESP_LOGI(TAG, "Команда 3 получена");
