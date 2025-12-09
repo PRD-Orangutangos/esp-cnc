@@ -7,6 +7,8 @@
 #include "html/html_pages.h"
 #include <string.h>
 #include "driver/gpio.h"
+#include "driver/rmt_tx.h"
+#include "stepper_motor_encoder.h"  // ← Ваш скопированный файл
 
 #define DIR_PIN_X  GPIO_NUM_18
 #define STEP_PIN_X GPIO_NUM_19
@@ -48,35 +50,96 @@ static int dirX = 0;
 static int dirY = 0;
 static int dirZ = 0;
 
-void stepperX(void *pvParameter){
-    while(1){
-        if(dirX != directionX){
-            dirX = directionX;
-        }
 
+
+
+// Глобальные переменные:
+static rmt_channel_handle_t rmt_channel_x = NULL;
+static rmt_encoder_handle_t uniform_motor_encoder = NULL;  // Только uniform для простоты
+
+void init_rmt_x(void)
+{
+    ESP_LOGI(TAG, "Инициализация RMT X");
+    
+    rmt_tx_channel_config_t tx_chan_config = {
+        .gpio_num = STEP_PIN_X,
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = 1000000,
+        .mem_block_symbols = 64,
+        .trans_queue_depth = 4,
+    };
+    ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_chan_config, &rmt_channel_x));
+    
+    stepper_motor_uniform_encoder_config_t uniform_config = {
+        .resolution = 1000000,
+    };
+    ESP_ERROR_CHECK(rmt_new_stepper_motor_uniform_encoder(&uniform_config, &uniform_motor_encoder));
+    
+    ESP_ERROR_CHECK(rmt_enable(rmt_channel_x));
+    ESP_LOGI(TAG, "RMT X готов");
+}
+
+void stepperX(void *pvParameter)
+{
+    init_rmt_x();
+    
+    while(1){
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if(dirX == 0){
-            vTaskDelay(pdMS_TO_TICKS(10));
-            // ESP_LOGW(TAG, "X стоп!");
+            esp_err_t ret = rmt_tx_wait_all_done(rmt_channel_x, pdMS_TO_TICKS(1));
+            if(ret != ESP_OK){
+                rmt_disable(rmt_channel_x);
+                vTaskDelay(pdMS_TO_TICKS(5));  // Стабилизация
+                rmt_enable(rmt_channel_x);     // ✅ ВКЛЮЧАЕМ НАЗАД!
+            }
+            
             continue;
         }
-        if(dirX == 1){
-            // ESP_LOGW(TAG, "X вперед!");
-            gpio_set_level(DIR_PIN_X, 1); 
-            gpio_set_level(STEP_PIN_X, 1);
-            vTaskDelay(pdMS_TO_TICKS(1));
-            gpio_set_level(STEP_PIN_X, 0);
-            vTaskDelay(pdMS_TO_TICKS(1)); 
-        }
-        if(dirX == 2){
-            // ESP_LOGW(TAG, "X назад!");
-            gpio_set_level(DIR_PIN_X, 0);
-            gpio_set_level(STEP_PIN_X, 1);
-            vTaskDelay(pdMS_TO_TICKS(1));
-            gpio_set_level(STEP_PIN_X, 0);
-            vTaskDelay(pdMS_TO_TICKS(1)); 
-        }
+        
+        gpio_set_level(DIR_PIN_X, dirX == 1 ? 1 : 0);
+        
+        // ✅ СКОРОСТЬ + КОЛИЧЕСТВО!
+        uint32_t speed_hz = 1000;           // СКОРОСТЬ 500Hz
+        rmt_transmit_config_t tx_config = {
+            .loop_count = 100000 / 64,      // 10000 шагов / размер блока = повторов
+        };
+        
+        // Передаем СКОРОСТЬ (как в примере)
+        ESP_ERROR_CHECK(rmt_transmit(rmt_channel_x, uniform_motor_encoder, 
+                                   &speed_hz, sizeof(speed_hz), &tx_config));
+        
+        // ESP_ERROR_CHECK(rmt_tx_wait_all_done(rmt_channel_x, portMAX_DELAY));
     }
 }
+// void stepperX(void *pvParameter){
+//     while(1){
+//         if(dirX != directionX){
+//             dirX = directionX;
+//         }
+
+//         if(dirX == 0){
+//             vTaskDelay(pdMS_TO_TICKS(10));
+//             // ESP_LOGW(TAG, "X стоп!");
+//             continue;
+//         }
+//         if(dirX == 1){
+//             // ESP_LOGW(TAG, "X вперед!");
+//             gpio_set_level(DIR_PIN_X, 1); 
+//             gpio_set_level(STEP_PIN_X, 1);
+//             vTaskDelay(pdMS_TO_TICKS(2));
+//             gpio_set_level(STEP_PIN_X, 0);
+//             vTaskDelay(pdMS_TO_TICKS(2)); 
+//         }
+//         if(dirX == 2){
+//             // ESP_LOGW(TAG, "X назад!");
+//             gpio_set_level(DIR_PIN_X, 0);
+//             gpio_set_level(STEP_PIN_X, 1);
+//             vTaskDelay(pdMS_TO_TICKS(2));
+//             gpio_set_level(STEP_PIN_X, 0);
+//             vTaskDelay(pdMS_TO_TICKS(2)); 
+//         }
+//     }
+// }
 
 void stepperY(void *pvParameter){
     while(1){
@@ -167,12 +230,16 @@ static esp_err_t ws_handler(httpd_req_t *req) {
                 ESP_LOGI(TAG, "X+ получена");
 
                 directionX = 1;
+                dirX = 1;  // ← Копируем сразу
+                vTaskNotifyGiveFromISR(xTaskGetHandle("stepperX"), NULL); 
 
                 }
             if (strcmp((char*)buf, "cmd2") == 0) {
                 ESP_LOGI(TAG, "X- получена");
 
                 directionX = 2;
+                dirX = 2;  // ← Копируем сразу  
+                vTaskNotifyGiveFromISR(xTaskGetHandle("stepperX"), NULL);  // ← Уведомляем
 
 
             }
@@ -180,6 +247,8 @@ static esp_err_t ws_handler(httpd_req_t *req) {
                 ESP_LOGI(TAG, "X stop получена");
 
                 directionX = 0;
+                dirX = 0;  // ← Копируем сразу
+                vTaskNotifyGiveFromISR(xTaskGetHandle("stepperX"), NULL);  // ← Уведомляем
 
             }
             //Y
@@ -249,9 +318,10 @@ static httpd_handle_t start_webserver(void)
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &ws);
         httpd_register_uri_handler(server, &any);
-        xTaskCreate(stepperX, "ws_sender", 2048, NULL, 8, NULL);
-        xTaskCreate(stepperY, "ws_sender2", 2048, NULL, 8, NULL);
-        xTaskCreate(stepperZ, "ws_sender3", 2048, NULL, 8, NULL);
+        xTaskCreate(stepperX, "stepperX", 4096, NULL, 8, NULL);  // ← Имя "stepperX"
+        // xTaskCreate(stepperX, "ws_sender", 2048, NULL, 8, NULL);
+        // xTaskCreate(stepperY, "ws_sender2", 2048, NULL, 8, NULL);
+        // xTaskCreate(stepperZ, "ws_sender3", 2048, NULL, 8, NULL);
         return server;
     }
 
@@ -269,7 +339,7 @@ void init_gpio(void)
             (1ULL << DIR_PIN_Z)  | (1ULL << STEP_PIN_Z),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
     
