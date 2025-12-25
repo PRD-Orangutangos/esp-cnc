@@ -8,18 +8,44 @@
 #include <string.h>
 #include "driver/gpio.h"
 #include "driver/rmt_tx.h"
-#include "stepper_motor_encoder.h"  // ← Ваш скопированный файл
+#include "encoder_test.h"  // ← Ваш скопированный файл
 
-#define DIR_PIN_X  GPIO_NUM_18
-#define STEP_PIN_X GPIO_NUM_19
-
-
-#define DIR_PIN_Y  GPIO_NUM_20
-#define STEP_PIN_Y GPIO_NUM_21
+// #define DIR_PIN_X  GPIO_NUM_18
+// #define STEP_PIN_X GPIO_NUM_19
 
 
-#define DIR_PIN_Z  GPIO_NUM_22
-#define STEP_PIN_Z GPIO_NUM_23
+// #define DIR_PIN_Y  GPIO_NUM_20
+// #define STEP_PIN_Y GPIO_NUM_21
+
+
+// #define DIR_PIN_Z  GPIO_NUM_22
+// #define STEP_PIN_Z GPIO_NUM_23
+
+
+
+
+//example for motor usage
+// #include "step_motor.h"
+// #include "esp_log.h"
+// void app_main(void)
+// {
+//     step_motor motor_x;
+//     step_motor motor_y;
+//     step_motor motor_z;
+//     step_motor_init(&motor_x, 18, 19);
+//     step_motor_init(&motor_y, 20, 21);
+//     step_motor_init(&motor_z, 22, 23);
+//     step_motor_move(&motor_x, 10000, 1, 500);
+//     step_motor_move(&motor_y, 15000, 1, 2000);
+//     step_motor_move(&motor_z, 100000, 0, 100);
+//     while(1) {
+//         vTaskDelay(pdMS_TO_TICKS(1000));
+//         ESP_LOGW("MOTOR", "proc free!");   
+//     }
+// }
+
+
+
 
 static const char *TAG = "esp-cnc";
 
@@ -60,7 +86,6 @@ static rmt_encoder_handle_t uniform_motor_encoder = NULL;  // Только unifo
 void init_rmt_x(void)
 {
     ESP_LOGI(TAG, "Инициализация RMT X");
-    
     rmt_tx_channel_config_t tx_chan_config = {
         .gpio_num = STEP_PIN_X,
         .clk_src = RMT_CLK_SRC_DEFAULT,
@@ -69,12 +94,6 @@ void init_rmt_x(void)
         .trans_queue_depth = 4,
     };
     ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_chan_config, &rmt_channel_x));
-    
-    stepper_motor_uniform_encoder_config_t uniform_config = {
-        .resolution = 1000000,
-    };
-    ESP_ERROR_CHECK(rmt_new_stepper_motor_uniform_encoder(&uniform_config, &uniform_motor_encoder));
-    
     ESP_ERROR_CHECK(rmt_enable(rmt_channel_x));
     ESP_LOGI(TAG, "RMT X готов");
 }
@@ -82,34 +101,13 @@ void init_rmt_x(void)
 void stepperX(void *pvParameter)
 {
     init_rmt_x();
-    
-    while(1){
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        if(dirX == 0){
-            esp_err_t ret = rmt_tx_wait_all_done(rmt_channel_x, pdMS_TO_TICKS(1));
-            if(ret != ESP_OK){
-                rmt_disable(rmt_channel_x);
-                vTaskDelay(pdMS_TO_TICKS(5));  // Стабилизация
-                rmt_enable(rmt_channel_x);     // ✅ ВКЛЮЧАЕМ НАЗАД!
-            }
-            
-            continue;
-        }
-        
-        gpio_set_level(DIR_PIN_X, dirX == 1 ? 1 : 0);
-        
-        // ✅ СКОРОСТЬ + КОЛИЧЕСТВО!
-        uint32_t speed_hz = 1000;           // СКОРОСТЬ 500Hz
-        rmt_transmit_config_t tx_config = {
-            .loop_count = 100000 / 64,      // 10000 шагов / размер блока = повторов
-        };
-        
-        // Передаем СКОРОСТЬ (как в примере)
-        ESP_ERROR_CHECK(rmt_transmit(rmt_channel_x, uniform_motor_encoder, 
-                                   &speed_hz, sizeof(speed_hz), &tx_config));
-        
-        // ESP_ERROR_CHECK(rmt_tx_wait_all_done(rmt_channel_x, portMAX_DELAY));
-    }
+    rmt_encoder_handle_t stepper_enc;
+    ESP_ERROR_CHECK(stepper_uniform_encoder_new(1000000, &stepper_enc));
+    rmt_transmit_config_t tx_cfg = {
+        .loop_count = 0,
+    };
+    uint16_t dat = 1;
+    ESP_ERROR_CHECK(rmt_transmit(rmt_channel_x, stepper_enc, &dat, sizeof(dat), &tx_cfg));
 }
 // void stepperX(void *pvParameter){
 //     while(1){
@@ -256,12 +254,16 @@ static esp_err_t ws_handler(httpd_req_t *req) {
                 ESP_LOGI(TAG, "Y+ получена");
 
                 directionY = 1;
+                dirY = 1;  // ← Копируем сразу
+                vTaskNotifyGiveFromISR(xTaskGetHandle("stepperY"), NULL);  // ← Уведомляем
 
                 }
             if (strcmp((char*)buf, "cmd5") == 0) {
                 ESP_LOGI(TAG, "Y- получена");
 
                 directionY = 2;
+                dirY = 2;  // ← Копируем сразу
+                vTaskNotifyGiveFromISR(xTaskGetHandle("stepperY"), NULL);  // ← Уведомляем
 
 
             }
@@ -269,6 +271,8 @@ static esp_err_t ws_handler(httpd_req_t *req) {
                 ESP_LOGI(TAG, "Y stop получена");
 
                 directionY = 0;
+                dirY = 0;  // ← Копируем сразу
+                vTaskNotifyGiveFromISR(xTaskGetHandle("stepperY"), NULL);  // ← Уведомляем
 
             }
             //Z
