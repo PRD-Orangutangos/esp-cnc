@@ -118,6 +118,98 @@
 // "</body>\n"
 // "</html>";
 
+
+
+
+// static const char upload_page[]=
+// "<!DOCTYPE html>"
+//         "<html><head><title>ESP SD Upload</title></head>"
+//         "<body>"
+//         "<h2>Upload File</h2>"
+//         "<input type='file' id='f'>"
+//         "<button onclick='upload()'>Upload</button>"
+//         "<pre id='log'></pre>"
+//         "<script>"
+//         "function upload(){"
+//         "const file=document.getElementById('f').files[0];"
+//         "if(!file){alert('Select file');return;}"
+//         "const log=document.getElementById('log');"
+//         "log.textContent='Uploading '+file.name+'...';"
+//         "fetch('/upload?name='+encodeURIComponent(file.name),{"
+//         "method:'POST',"
+//         "headers:{'Content-Type':'application/octet-stream'},"
+//         "body:file"
+//         "}).then(r=>r.text()).then(msg=>{log.textContent+='\\n✅ '+msg;})"
+//         ".catch(e=>{log.textContent+='\\n❌ '+e;});"
+//         "}"
+//         "</script>"
+//         "</body></html>";
+
+
+
+
+static const char upload_page[]=
+"<!DOCTYPE html>"
+"<html>"
+"<head>"
+"<title>ESP SD Upload</title>"
+"<meta charset='utf-8'>"
+"</head>"
+"<body>"
+"<h2>Upload File</h2>"
+
+"<input type='file' id='f'><br><br>"
+"<progress id='bar' value='0' max='100' style='width:300px'></progress>"
+"<div id='percent'>0%</div><br>"
+
+"<button onclick='upload()'>Upload</button>"
+"<pre id='log'></pre>"
+
+"<script>"
+"function upload(){"
+"  const file=document.getElementById('f').files[0];"
+"  if(!file){alert('Select file');return;}"
+
+"  const bar=document.getElementById('bar');"
+"  const percent=document.getElementById('percent');"
+"  const log=document.getElementById('log');"
+
+"  bar.value=0;"
+"  percent.textContent='0%';"
+"  log.textContent='Uploading '+file.name+'...';"
+
+"  const xhr=new XMLHttpRequest();"
+"  xhr.open('POST','/upload?name='+encodeURIComponent(file.name),true);"
+"  xhr.setRequestHeader('Content-Type','application/octet-stream');"
+
+"  xhr.upload.onprogress=function(e){"
+"    if(e.lengthComputable){"
+"      const p=Math.round((e.loaded/e.total)*100);"
+"      bar.value=p;"
+"      percent.textContent=p+'%';"
+"    }"
+"  };"
+
+"  xhr.onload=function(){"
+"    if(xhr.status==200){"
+"      log.textContent+='\\n✅ '+xhr.responseText;"
+"    }else{"
+"      log.textContent+='\\n❌ Upload failed';"
+"    }"
+"  };"
+
+"  xhr.onerror=function(){"
+"    log.textContent+='\\n❌ Network error';"
+"  };"
+
+"  xhr.send(file);"
+"}"
+"</script>"
+"</body>"
+"</html>";
+
+
+
 static const char main_page[] =
 "<!DOCTYPE html>\n"
 "<html>\n"
