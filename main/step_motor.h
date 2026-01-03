@@ -5,11 +5,13 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <math.h>
 
 typedef struct
 {
     gpio_num_t dir_pin;
     gpio_num_t step_pin;
+    bool is_free;
     mcpwm_timer_handle_t timer;
     mcpwm_timer_config_t timer_cfg;
     mcpwm_oper_handle_t oper;
@@ -29,7 +31,7 @@ bool IRAM_ATTR step_motor_callback(mcpwm_timer_handle_t timer,
         motor->steps_left--;
         return true;
     }
-    
+    motor->is_free = true;
     mcpwm_timer_start_stop(timer, MCPWM_TIMER_STOP_FULL);
     gpio_set_level(motor->step_pin, 0);
     return false;
@@ -66,6 +68,7 @@ void timer_init(step_motor *current_motor)
         .on_full = step_motor_callback,  // для X
     };
     ESP_ERROR_CHECK(mcpwm_timer_register_event_callbacks(current_motor->timer, &cbs, current_motor));
+    ESP_ERROR_CHECK(mcpwm_timer_enable(current_motor->timer));
 }
 
 void operator_init(step_motor *current_motor)
@@ -97,6 +100,7 @@ static esp_err_t step_motor_init(step_motor *new_motor, gpio_num_t dir, gpio_num
     new_motor->dir_pin = dir;
     new_motor->step_pin = step;
     new_motor->steps_left = 0;
+    new_motor->is_free = true;
     gpio_init(new_motor);
     timer_init(new_motor);
     operator_init(new_motor);
@@ -111,6 +115,23 @@ static void step_motor_move(step_motor *motor, int steps, bool direction, uint32
     ESP_ERROR_CHECK(mcpwm_timer_set_period(motor->timer, speed));
     ESP_ERROR_CHECK(mcpwm_timer_enable(motor->timer));
     ESP_ERROR_CHECK(mcpwm_timer_start_stop(motor->timer, MCPWM_TIMER_START_NO_STOP));
+
+}
+
+#define STEPS_PER_MM 1600 // 1.8 degree by step, 8mm screw, 2mm per turn
+#define DEFAULT_SPEED 100
+static void step_motor_move_to_distance(step_motor *motor, float mm){
+    uint32_t direction = 1;
+    if(mm < 0){
+        direction = 0;
+        mm *= (-1);
+    }
+    int result_steps = roundf(mm * STEPS_PER_MM);
+    gpio_set_level(motor->dir_pin, direction);
+    motor->steps_left = result_steps;
+    ESP_ERROR_CHECK(mcpwm_timer_set_period(motor->timer, DEFAULT_SPEED));
+    ESP_ERROR_CHECK(mcpwm_timer_start_stop(motor->timer, MCPWM_TIMER_START_NO_STOP));
+    motor->is_free = false;
 
 }
 
