@@ -239,6 +239,17 @@ static esp_err_t ws_handler(httpd_req_t *req) {
                 dirX = 2;  // ← Копируем сразу  
                 vTaskNotifyGiveFromISR(xTaskGetHandle("stepperX"), NULL);  // ← Уведомляем
 
+#include "esp_wifi.h"
+#include "esp_event.h"
+#include "nvs_flash.h"
+#include "esp_netif.h"
+#include "esp_http_server.h"
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include "lwip/inet.h" 
+#include "SDstorage.h"
 
             }
             if (strcmp((char*)buf, "cmd3") == 0) {
@@ -361,16 +372,15 @@ void init_gpio(void)
              DIR_PIN_X, STEP_PIN_X, DIR_PIN_Y, STEP_PIN_Y, DIR_PIN_Z, STEP_PIN_Z);
 }
 
+// ---------------------------------------------------
 void app_main(void)
 {
-
-    init_gpio();
     ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(example_connect());
 
-    server = start_webserver();
-
- 
+    wifi_init();
+    if(!initStorage()){
+        return;
+    }
+    start_webserver();
+    ESP_LOGI(TAG, "✅ Ready! Open http://<ESP_IP>/ to upload files to SD.");
 }
