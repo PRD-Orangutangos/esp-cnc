@@ -34,14 +34,11 @@ uint8_t dire = 0;
 void app_main(void)
 {
     init_motors();
-    enqueue_move_xy(30000, 30000, dire, !dire);
-    enqueue_move_xy(0, 30000, dire, !dire);
-    enqueue_move_xy(30000, 0, dire, !dire);
-    enqueue_move_xy(0, 30000, !dire, dire);
-    enqueue_move_xy(30000, 0, !dire, dire);
-    enqueue_move_xy(30000, 30000, !dire, dire);
-    enqueue_move_xy(130000, 30000, dire, !dire);
-    enqueue_move_xy(130000, 30000, !dire, dire);
+    move_to_distance(120, 108);
+    // move_to_distance(0, 110);
+    move_to_distance(-120, -108);
+    // move_to_distance(0, -110);
+
     // step_motor_init(&motor_x, 18, 19);
     // for(int i = 0; i < 5; i++){
     //     step_motor_move_to_distance(&motor_x, 23.765f);
