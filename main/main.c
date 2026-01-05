@@ -30,12 +30,18 @@
 // #define DIR_PIN_Z  GPIO_NUM_22
 // #define STEP_PIN_Z GPIO_NUM_23
 
-uint8_t dire = 1;
+uint8_t dire = 0;
 void app_main(void)
 {
     init_motors();
-    move_linear_xy(0,100000,dire,!dire);
-
+    enqueue_move_xy(30000, 30000, dire, !dire);
+    enqueue_move_xy(0, 30000, dire, !dire);
+    enqueue_move_xy(30000, 0, dire, !dire);
+    enqueue_move_xy(0, 30000, !dire, dire);
+    enqueue_move_xy(30000, 0, !dire, dire);
+    enqueue_move_xy(30000, 30000, !dire, dire);
+    enqueue_move_xy(130000, 30000, dire, !dire);
+    enqueue_move_xy(130000, 30000, !dire, dire);
     // step_motor_init(&motor_x, 18, 19);
     // for(int i = 0; i < 5; i++){
     //     step_motor_move_to_distance(&motor_x, 23.765f);

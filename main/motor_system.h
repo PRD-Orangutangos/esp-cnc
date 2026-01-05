@@ -3,6 +3,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <math.h>
+#include "hal/gpio_ll.h"
+#include "hal/gpio_types.h"
+
 
 #define DIR_PIN_X GPIO_NUM_18
 #define STEP_PIN_X GPIO_NUM_19
@@ -13,7 +16,9 @@
 #define DIR_PIN_Z GPIO_NUM_22
 #define STEP_PIN_Z GPIO_NUM_23
 
-#define DEFAULT_SPEED 90
+#define DEFAULT_SPEED 100
+
+
 
 
 mcpwm_timer_handle_t timer1;
@@ -32,6 +37,16 @@ mcpwm_gen_handle_t generator_y;
 mcpwm_gen_handle_t generator_z;
 
 
+
+typedef struct {
+    int steps_x;
+    int steps_y;
+    bool dir_x;
+    bool dir_y;
+} motion_cmd_t;
+
+QueueHandle_t motion_queue;
+TaskHandle_t motion_task_handle = NULL;
 
 // целевые шаги
 volatile int target_x = 0;
@@ -53,6 +68,44 @@ volatile int dda_N = 0;
 int steps_x = 0;
 int steps_y = 0;
 int steps_z = 0;
+
+
+
+void motion_task(void *arg)
+{
+    motion_cmd_t cmd;
+
+    while (1) {
+        // ждём новое задание
+        if (xQueueReceive(motion_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+
+            // установка направления
+            gpio_set_level(DIR_PIN_X, cmd.dir_x);
+            gpio_set_level(DIR_PIN_Y, cmd.dir_y);
+
+            // подготовка DDA
+            target_x = abs(cmd.steps_x);
+            target_y = abs(cmd.steps_y);
+
+            done_x = 0;
+            done_y = 0;
+
+            dda_dx = target_x;
+            dda_dy = target_y;
+            dda_N  = (target_x > target_y) ? target_x : target_y;
+
+            dda_err_x = 0;
+            dda_err_y = 0;
+
+            // запуск таймера
+            mcpwm_timer_start_stop(timer1, MCPWM_TIMER_START_NO_STOP);
+
+            // ждём сигнал завершения от ISR
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        }
+    }
+}
+
 
 bool IRAM_ATTR timer_callback(
     mcpwm_timer_handle_t timer,
@@ -130,7 +183,10 @@ bool IRAM_ATTR timer_callback(
     // --- завершение ---
     if (done_x >= target_x && done_y >= target_y) {
         mcpwm_timer_start_stop(timer, MCPWM_TIMER_STOP_FULL);
-        return false;
+
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        vTaskNotifyGiveFromISR(motion_task_handle, &xHigherPriorityTaskWoken);
+        return xHigherPriorityTaskWoken == pdTRUE;
     }
 
     return true;
@@ -229,25 +285,178 @@ void init_motors()
     operators_init();
     comporators_init();
     generators_init();
+
+    motion_queue = xQueueCreate(10, sizeof(motion_cmd_t));
+    assert(motion_queue);
+
+    xTaskCreatePinnedToCore(
+        motion_task,
+        "motion_task",
+        4096,
+        NULL,
+        10,
+        &motion_task_handle,
+        0
+    );
 }
 
-void move_linear_xy(int steps_x, int steps_y, bool dir_x, bool dir_y)
+void enqueue_move_xy(int sx, int sy, bool dx, bool dy)
 {
-    gpio_set_level(DIR_PIN_X, dir_x);
-    gpio_set_level(DIR_PIN_Y, dir_y);
+    motion_cmd_t cmd = {
+        .steps_x = sx,
+        .steps_y = sy,
+        .dir_x = dx,
+        .dir_y = dy
+    };
 
-    target_x = abs(steps_x);
-    target_y = abs(steps_y);
-
-    done_x = 0;
-    done_y = 0;
-
-    dda_dx = target_x;
-    dda_dy = target_y;
-    dda_N  = (target_x > target_y) ? target_x : target_y;
-
-    dda_err_x = 0;
-    dda_err_y = 0;
-
-    mcpwm_timer_start_stop(timer1, MCPWM_TIMER_START_NO_STOP);
+    xQueueSend(motion_queue, &cmd, portMAX_DELAY);
 }
+
+
+
+
+
+
+
+
+// #include "driver/gptimer.h"
+
+
+// gptimer_handle_t step_timer;
+
+// // volatile bool step_x_pulse = false;
+// volatile bool step_x_pulse = false;
+// volatile uint8_t step_x_phase = 0;
+
+// volatile bool step_y_pulse = false;
+// volatile uint8_t step_y_phase = 0;
+
+// bool IRAM_ATTR step_isr(gptimer_handle_t timer,
+//                         const gptimer_alarm_event_data_t *edata,
+//                         void *user_ctx)
+// {
+//     // --- DDA ---
+//     if (done_x < target_x || done_y < target_y) {
+//         dda_err_x += dda_dx;
+//         dda_err_y += dda_dy;
+
+//         if (dda_err_x >= dda_N && done_x < target_x) {
+//             dda_err_x -= dda_N;
+//             step_x_pulse = true;  // запрос на импульс
+//             done_x++;
+//         }
+
+//         if (dda_err_y >= dda_N && done_y < target_y) {
+//             dda_err_y -= dda_N;
+//             step_y_pulse = true;
+//             done_y++;
+//         }
+//     }
+
+//     // --- X ---
+//     if (step_x_pulse && step_x_phase == 0) {
+//         // фронт
+//         gpio_set_level(STEP_PIN_X, 1);
+//         step_x_phase = 1;
+//     } else if (step_x_phase == 1) {
+//         // спад на следующем тике
+//         gpio_set_level(STEP_PIN_X, 0);
+//         step_x_phase = 0;
+//         step_x_pulse = false;
+//     }
+
+//     // --- Y ---
+//     static uint8_t step_y_phase = 0;
+//     if (step_y_pulse && step_y_phase == 0) {
+//         gpio_set_level(STEP_PIN_Y, 1);
+//         step_y_phase = 1;
+//     } else if (step_y_phase == 1) {
+//         gpio_set_level(STEP_PIN_Y, 0);
+//         step_y_phase = 0;
+//         step_y_pulse = false;
+//     }
+
+//     // завершение движения
+//     if (done_x >= target_x && done_y >= target_y) {
+//         gptimer_stop(step_timer);
+//         gptimer_disable(step_timer);
+
+//         BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//         vTaskNotifyGiveFromISR(motion_task_handle, &xHigherPriorityTaskWoken);
+//         return xHigherPriorityTaskWoken == pdTRUE;
+//     }
+
+//     return false;
+// }
+
+// void timer_init() {
+//     gptimer_config_t cfg = {
+//         .clk_src = GPTIMER_CLK_SRC_DEFAULT,
+//         .direction = GPTIMER_COUNT_UP,
+//         .resolution_hz = 1000000 // 1 MHz
+//     };
+//     ESP_ERROR_CHECK(gptimer_new_timer(&cfg, &step_timer));
+
+//     gptimer_alarm_config_t alarm_cfg = {
+//         .alarm_count = 90,             // период ~90 мкс
+//         .reload_count = 0,
+//         .flags.auto_reload_on_alarm = 1, // ВАЖНО: периодический режим
+//     };
+//     ESP_ERROR_CHECK(gptimer_set_alarm_action(step_timer, &alarm_cfg));
+
+//     gptimer_event_callbacks_t cbs = {
+//         .on_alarm = step_isr,
+//     };
+//     ESP_ERROR_CHECK(gptimer_register_event_callbacks(step_timer, &cbs, NULL));
+// }
+
+// void motion_task(void *arg) {
+//     motion_cmd_t cmd;
+
+//     while(1) {
+//         // ждём новое задание
+//         if (xQueueReceive(motion_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+
+//             gpio_set_level(DIR_PIN_X, cmd.dir_x);
+//             gpio_set_level(DIR_PIN_Y, cmd.dir_y);
+
+//             // подготовка DDA
+//             target_x = abs(cmd.steps_x);
+//             target_y = abs(cmd.steps_y);
+//             done_x = 0; done_y = 0;
+//             dda_dx = target_x;
+//             dda_dy = target_y;
+//             dda_N  = (target_x > target_y) ? target_x : target_y;
+//             dda_err_x = 0; dda_err_y = 0;
+
+//             // включаем таймер
+//             gptimer_enable(step_timer);
+//             gptimer_start(step_timer);
+
+//             // ждём уведомления от ISR о завершении движения
+//             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+//         }
+//     }
+// }
+
+// void init_motors()
+// {
+//     gpios_init();
+//     timer_init();
+//     // operators_init();
+//     // comporators_init();
+//     // generators_init();
+
+//     motion_queue = xQueueCreate(10, sizeof(motion_cmd_t));
+//     assert(motion_queue);
+
+//     xTaskCreatePinnedToCore(
+//         motion_task,
+//         "motion_task",
+//         4096,
+//         NULL,
+//         10,
+//         &motion_task_handle,
+//         0
+//     );
+// }
