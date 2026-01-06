@@ -30,11 +30,14 @@
 // #define DIR_PIN_Z  GPIO_NUM_22
 // #define STEP_PIN_Z GPIO_NUM_23
 
-uint8_t dire = 1;
+uint8_t dire = 0;
 void app_main(void)
 {
     init_motors();
-    move_linear_xy(0,100000,dire,!dire);
+    move_to_distance(120, 108);
+    // move_to_distance(0, 110);
+    move_to_distance(-120, -108);
+    // move_to_distance(0, -110);
 
     // step_motor_init(&motor_x, 18, 19);
     // for(int i = 0; i < 5; i++){

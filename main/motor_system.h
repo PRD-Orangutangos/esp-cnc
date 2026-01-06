@@ -3,6 +3,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <math.h>
+#include "hal/gpio_ll.h"
+#include "hal/gpio_types.h"
+
 
 #define DIR_PIN_X GPIO_NUM_18
 #define STEP_PIN_X GPIO_NUM_19
@@ -13,8 +16,10 @@
 #define DIR_PIN_Z GPIO_NUM_22
 #define STEP_PIN_Z GPIO_NUM_23
 
-#define DEFAULT_SPEED 90
+#define DEFAULT_SPEED 200
 
+#define STEPS_PER_MM_X 1600 
+#define STEPS_PER_MM_Y 1600
 
 mcpwm_timer_handle_t timer1;
 mcpwm_timer_config_t timer_cfg;
@@ -33,6 +38,16 @@ mcpwm_gen_handle_t generator_z;
 
 
 
+typedef struct {
+    int steps_x;
+    int steps_y;
+    bool dir_x;
+    bool dir_y;
+} motion_cmd_t;
+
+QueueHandle_t motion_queue;
+TaskHandle_t motion_task_handle = NULL;
+
 // целевые шаги
 volatile int target_x = 0;
 volatile int target_y = 0;
@@ -50,9 +65,45 @@ volatile int dda_dy = 0;
 volatile int dda_N = 0;
 
 
-int steps_x = 0;
-int steps_y = 0;
-int steps_z = 0;
+
+
+
+
+void motion_task(void *arg)
+{
+    motion_cmd_t cmd;
+
+    while (1) {
+        // ждём новое задание
+        if (xQueueReceive(motion_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+
+            // установка направления
+            gpio_set_level(DIR_PIN_X, cmd.dir_x);
+            gpio_set_level(DIR_PIN_Y, cmd.dir_y);
+
+            // подготовка DDA
+            target_x = abs(cmd.steps_x);
+            target_y = abs(cmd.steps_y);
+
+            done_x = 0;
+            done_y = 0;
+
+            dda_dx = target_x;
+            dda_dy = target_y;
+            dda_N  = (target_x > target_y) ? target_x : target_y;
+
+            dda_err_x = 0;
+            dda_err_y = 0;
+
+            // запуск таймера
+            mcpwm_timer_start_stop(timer1, MCPWM_TIMER_START_NO_STOP);
+
+            // ждём сигнал завершения от ISR
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        }
+    }
+}
+
 
 bool IRAM_ATTR timer_callback(
     mcpwm_timer_handle_t timer,
@@ -130,7 +181,10 @@ bool IRAM_ATTR timer_callback(
     // --- завершение ---
     if (done_x >= target_x && done_y >= target_y) {
         mcpwm_timer_start_stop(timer, MCPWM_TIMER_STOP_FULL);
-        return false;
+
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        vTaskNotifyGiveFromISR(motion_task_handle, &xHigherPriorityTaskWoken);
+        return xHigherPriorityTaskWoken == pdTRUE;
     }
 
     return true;
@@ -229,25 +283,57 @@ void init_motors()
     operators_init();
     comporators_init();
     generators_init();
+
+    motion_queue = xQueueCreate(10, sizeof(motion_cmd_t));
+    assert(motion_queue);
+
+    xTaskCreatePinnedToCore(
+        motion_task,
+        "motion_task",
+        4096,
+        NULL,
+        10,
+        &motion_task_handle,
+        0
+    );
 }
 
-void move_linear_xy(int steps_x, int steps_y, bool dir_x, bool dir_y)
+void enqueue_move_xy(int sx, int sy, bool dx, bool dy)
 {
-    gpio_set_level(DIR_PIN_X, dir_x);
-    gpio_set_level(DIR_PIN_Y, dir_y);
+    motion_cmd_t cmd = {
+        .steps_x = sx,
+        .steps_y = sy,
+        .dir_x = dx,
+        .dir_y = dy
+    };
 
-    target_x = abs(steps_x);
-    target_y = abs(steps_y);
-
-    done_x = 0;
-    done_y = 0;
-
-    dda_dx = target_x;
-    dda_dy = target_y;
-    dda_N  = (target_x > target_y) ? target_x : target_y;
-
-    dda_err_x = 0;
-    dda_err_y = 0;
-
-    mcpwm_timer_start_stop(timer1, MCPWM_TIMER_START_NO_STOP);
+    xQueueSend(motion_queue, &cmd, portMAX_DELAY);
 }
+
+static void move_to_distance(float mm_x, float mm_y){
+    uint32_t direction_x = 1;
+    uint32_t direction_y = 1;
+    if(mm_x < 0){
+        direction_x = 0;
+        mm_x *= (-1);
+    }
+    if(mm_y < 0){
+        direction_y = 0;
+        mm_y *= (-1);
+    }
+    int result_steps_x = roundf(mm_x * STEPS_PER_MM_X);
+
+    int result_steps_y = roundf(mm_y * STEPS_PER_MM_Y);
+
+    motion_cmd_t cmd = {
+        .steps_x = result_steps_x,
+        .steps_y = result_steps_y,
+        .dir_x = direction_x,
+        .dir_y = direction_y
+    };
+
+    xQueueSend(motion_queue, &cmd, portMAX_DELAY);
+
+}
+
+
