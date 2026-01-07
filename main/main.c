@@ -15,7 +15,8 @@
 
 // example for motor usage
 // #include "step_motor.h"
-#include "motor_system.h"
+// #include "motor_system.h"
+#include "interrupt_switch.h"
 #include "esp_log.h"
 
 
@@ -30,14 +31,20 @@
 // #define DIR_PIN_Z  GPIO_NUM_22
 // #define STEP_PIN_Z GPIO_NUM_23
 
-uint8_t dire = 0;
+// uint8_t dire = 0;
 void app_main(void)
 {
-    init_motors();
-    move_to_distance(120, 108);
+    Super_switch limit_x_switch;
+    Super_switch limit_y_switch;
+    init_switch(&limit_x_switch, GPIO_NUM_10);
+    init_switch(&limit_y_switch, GPIO_NUM_11);
+    // init_motors();
+    // move_to_distance(120, 108);
     // move_to_distance(0, 110);
-    move_to_distance(-120, -108);
+    // move_to_distance(-120, -108);
     // move_to_distance(0, -110);
+
+
 
     // step_motor_init(&motor_x, 18, 19);
     // for(int i = 0; i < 5; i++){
@@ -58,10 +65,9 @@ void app_main(void)
     // step_motor_move(&motor_x, 10000, 1, 500);
     // step_motor_move(&motor_y, 15000, 1, 2000);
     // step_motor_move(&motor_z, 100000, 0, 100);
-    // while(1) {
-    //     vTaskDelay(pdMS_TO_TICKS(1000));
-    //     ESP_LOGW("MOTOR", "proc free!");   
-    // }
+    while(1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
 
 
