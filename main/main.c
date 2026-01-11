@@ -15,8 +15,8 @@
 
 // example for motor usage
 // #include "step_motor.h"
-// #include "motor_system.h"
-#include "interrupt_switch.h"
+#include "motor_system.h"
+// #include "interrupt_switch.h"
 #include "esp_log.h"
 
 
@@ -34,12 +34,23 @@
 // uint8_t dire = 0;
 void app_main(void)
 {
-    Super_switch limit_x_switch;
-    Super_switch limit_y_switch;
-    init_switch(&limit_x_switch, GPIO_NUM_10);
-    init_switch(&limit_y_switch, GPIO_NUM_11);
-    // init_motors();
-    // move_to_distance(120, 108);
+    // Super_switch limit_x_switch;
+    // Super_switch limit_y_switch;
+    // init_switch(&limit_x_switch, GPIO_NUM_10);
+    // init_switch(&limit_y_switch, GPIO_NUM_11);
+
+    init_motors();
+    move_to_distance(50, 50, -20); // z = 29.2
+
+    // move_to_distance(30, 0, 0);
+    // move_to_distance(0, 30, 0);
+    // move_to_distance(-30, 0, 0);
+    // move_to_distance(0, -30, 0);
+
+    move_to_distance(-50, -50, 20);
+    // move_to_distance(0, 0, -2);
+    // move_to_distance(50, 50); // x = 100, y = 100
+    // move_to_distance(-50, -50);
     // move_to_distance(0, 110);
     // move_to_distance(-120, -108);
     // move_to_distance(0, -110);
