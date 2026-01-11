@@ -40,14 +40,24 @@ void app_main(void)
     // init_switch(&limit_y_switch, GPIO_NUM_11);
 
     init_motors();
-    move_to_distance(50, 50, -20); // z = 29.2
+    move_to_position(50, 50, -25);
+    move_to_position(50, 80, -15);
+    move_to_position(0, 80, -25);
+    move_to_position(0, 0, -10);
+    move_to_position(0, 0, 0);
+    // move_to_distance(0, 0, -20);
+    // move_to_distance(200, 0, 0); // z = 29.2
 
-    // move_to_distance(30, 0, 0);
-    // move_to_distance(0, 30, 0);
+    // move_to_distance(-20, 0, 0);
+    // move_to_distance(-20, 0, 0);
+
+    // move_to_distance(50, 0, 0);
+
     // move_to_distance(-30, 0, 0);
-    // move_to_distance(0, -30, 0);
+    // move_to_distance(-30, 0, 0);
+    // move_to_distance(-20, 0, 0);
 
-    move_to_distance(-50, -50, 20);
+    // move_to_distance(0, 0, 20);
     // move_to_distance(0, 0, -2);
     // move_to_distance(50, 50); // x = 100, y = 100
     // move_to_distance(-50, -50);
@@ -77,7 +87,9 @@ void app_main(void)
     // step_motor_move(&motor_y, 15000, 1, 2000);
     // step_motor_move(&motor_z, 100000, 0, 100);
     while(1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(100));
+        // get_position();
+        // ESP_LOGW("pos: ", "%f, %f, %f", current_x_position, current_y_position, current_z_position);
     }
 }
 
