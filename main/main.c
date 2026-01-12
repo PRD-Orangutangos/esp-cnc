@@ -16,73 +16,25 @@
 // example for motor usage
 // #include "step_motor.h"
 #include "motor_system.h"
-// #include "interrupt_switch.h"
+
 #include "esp_log.h"
 
-// Настройки сердца
 
 
-void draw_heart(void)
-{
-    const float cx = 10.0f;   // центр X
-    const float cy = 10.0f;   // центр Y
-    const float z_work = -27.6f;
-    const float z_clear = -20.0f;
-
-    // Подъём и позиционирование над центром
-    move_to_position(cx, cy, z_clear);
-
-    // Начало: нижняя точка (относительно центра)
-    move_to_position(cx + 0.0,  cy - 5.0, z_work);
-
-    // Левая доля
-    move_to_position(cx - 1.0,  cy - 3.5, z_work);
-    move_to_position(cx - 2.5,  cy - 2.0, z_work);
-    move_to_position(cx - 4.0,  cy - 0.5, z_work);
-    move_to_position(cx - 5.0,  cy + 1.0, z_work);
-    move_to_position(cx - 4.5,  cy + 2.5, z_work);
-    move_to_position(cx - 3.0,  cy + 3.5, z_work);
-    move_to_position(cx - 1.0,  cy + 4.0, z_work);
-
-    // Ямочка (верхняя впадина)
-    move_to_position(cx + 0.0,  cy + 2.5, z_work);
-
-    // Правая доля
-    move_to_position(cx + 1.0,  cy + 4.0, z_work);
-    move_to_position(cx + 3.0,  cy + 3.5, z_work);
-    move_to_position(cx + 4.5,  cy + 2.5, z_work);
-    move_to_position(cx + 5.0,  cy + 1.0, z_work);
-    move_to_position(cx + 4.0,  cy - 0.5, z_work);
-    move_to_position(cx + 2.5,  cy - 2.0, z_work);
-    move_to_position(cx + 1.0,  cy - 3.5, z_work);
-
-    // Замыкание контура
-    move_to_position(cx + 0.0,  cy - 5.0, z_work);
-
-    // Подъём
-    move_to_position(cx, cy, z_clear);
-}
-// #define DIR_PIN_X  GPIO_NUM_18
-// #define STEP_PIN_X GPIO_NUM_19
-
-
-// #define DIR_PIN_Y  GPIO_NUM_20
-// #define STEP_PIN_Y GPIO_NUM_21
-
-
-// #define DIR_PIN_Z  GPIO_NUM_22
-// #define STEP_PIN_Z GPIO_NUM_23
-
-// uint8_t dire = 0;
 void app_main(void)
 {
-    // Super_switch limit_x_switch;
-    // Super_switch limit_y_switch;
-    // init_switch(&limit_x_switch, GPIO_NUM_10);
-    // init_switch(&limit_y_switch, GPIO_NUM_11);
+    
+
     init_motors();
-    draw_heart();          // рисует сердце в (25,25)
-    move_to_position(0, 0, 0); // возврат в ноль
+    move_to_base();
+    while(!x_limit_set || !y_limit_set){
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    move_to_position(20, 20, 0);
+    move_to_position(0, 0, 0);
+    move_to_position(-20, -10, 0);
+    // move_to_base();
+    // move_to_position(0, 0, 0); // возврат в ноль
 
     // move_to_position(50, 80, -15);
     // move_to_position(0, 80, -25);
