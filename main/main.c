@@ -1,20 +1,4 @@
-// #include <stdio.h>
-// #include "protocol_examples_common.h"
-// #include <nvs_flash.h>
-// #include <esp_log.h>
-// #include "esp_event.h"
-// #include <esp_http_server.h>
-// #include "html/html_pages.h"
-// #include <string.h>
-// #include "driver/gpio.h"
-// #include "driver/rmt_tx.h"
 
-
-
-
-
-// example for motor usage
-// #include "step_motor.h"
 #include "motor_system.h"
 
 #include "esp_log.h"
@@ -30,9 +14,10 @@ void app_main(void)
     while(!x_limit_set || !y_limit_set){
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    move_to_position(20, 20, 0);
+    move_to_position(90, 90, -20);
     move_to_position(0, 0, 0);
-    move_to_position(-20, -10, 0);
+    // move_to_position(-20, -10, 0);
+
     // move_to_base();
     // move_to_position(0, 0, 0); // возврат в ноль
 

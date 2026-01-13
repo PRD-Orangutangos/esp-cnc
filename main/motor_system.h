@@ -429,6 +429,7 @@
 
 #define LIMIT_X GPIO_NUM_11
 #define LIMIT_Y GPIO_NUM_10
+#define LIMIT_Z GPIO_NUM_10
 
 
 // #define DEFAULT_START_PERIOD 600   
@@ -765,16 +766,20 @@ void move_to_position(float x, float y, float z) {
 
 
 void move_to_base(){
-    DEFAULT_START_PERIOD = 600;
-    MAX_SPEED_PERIOD = 400;
+    DEFAULT_START_PERIOD = 200;
+    MAX_SPEED_PERIOD = 100;
     x_limit_set = false;
     y_limit_set = false;
     min_x_position = -150 * STEPS_PER_MM_X;
     min_y_position = -150 * STEPS_PER_MM_Y;
-    motion_cmd_t cmd = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
-    xQueueSend(motion_queue, &cmd, portMAX_DELAY);
-    motion_cmd_t cmd2 = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
-    xQueueSend(motion_queue, &cmd2, portMAX_DELAY);
+    // min_z_position = -150 * STEPS_PER_MM_Z;
+
+    motion_cmd_t cmd_x = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd_x, portMAX_DELAY);
+    motion_cmd_t cmd_y = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd_y, portMAX_DELAY);
+    // motion_cmd_t cmd_z = { .x_mm = 0, .y_mm = 0, .z_mm = 100}; //invert
+    // xQueueSend(motion_queue, &cmd_z, portMAX_DELAY);
 }
 
 void motion_task(void *arg) {
