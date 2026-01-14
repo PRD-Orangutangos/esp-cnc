@@ -3,11 +3,13 @@
 #include "esp_err.h"
 #include "html/html_pages.h"
 #include "esp_vfs_fat.h"
-
+#include "esp_http_server.h"
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "sdmmc_cmd.h"
-
+#include "errno.h"
+#include "gcode_parse.h"
+#include "motor_system.h"
 #define PIN_NUM_MISO 6
 #define PIN_NUM_MOSI 4
 #define PIN_NUM_CLK  5
@@ -142,7 +144,46 @@ static esp_err_t root_handler(httpd_req_t *req)
 
 
 
+void gcode_execution_task(void *arg)
+{
+    gcode_task_handle = xTaskGetCurrentTaskHandle();  // сохраняем handle
 
+    FILE* f = fopen("/sd/cnc.nc", "r");
+    if (!f) {
+        ESP_LOGE(TAG, "G-code file not found");
+        gcode_task_handle = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+
+    char line[128];
+    gcode_command_t cmd;
+
+    while (fgets(line, sizeof(line), f) != NULL) {
+        // ... (очистка строки)
+
+        parse_gcode_line(line, &cmd);
+
+        if (strcmp(cmd.cmd, "COMMENT") == 0) continue;
+
+        if (strcmp(cmd.cmd, "G00") == 0 || strcmp(cmd.cmd, "G01") == 0) {
+            float x = cmd.has_x ? cmd.x : current_x_position;
+            float y = cmd.has_y ? cmd.y : current_y_position;
+            float z = cmd.has_z ? cmd.z : current_z_position;
+
+            ESP_LOGI(TAG, "Move to X:%.3f Y:%.3f Z:%.3f", x, y, z);
+            move_to_position(x, y, z);
+
+            // Ждём уведомления от motion_task
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        }
+    }
+
+    fclose(f);
+    gcode_task_handle = NULL;
+    ESP_LOGI(TAG, "G-code finished");
+    vTaskDelete(NULL);
+}
 
 
 

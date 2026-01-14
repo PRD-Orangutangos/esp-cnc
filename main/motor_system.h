@@ -440,7 +440,7 @@
 #define STEPS_PER_MM_Y 1600
 #define STEPS_PER_MM_Z 1600
 
-
+static TaskHandle_t gcode_task_handle = NULL;  // ← глобальный
 
 
 mcpwm_timer_handle_t timer1;
@@ -464,7 +464,7 @@ float current_z_position = 0;
 
 int32_t max_x_position = 100 * STEPS_PER_MM_X;
 int32_t max_y_position = 100 * STEPS_PER_MM_Y;
-int32_t max_z_position = 0 * STEPS_PER_MM_Z;
+int32_t max_z_position = 30 * STEPS_PER_MM_Z;
 
 int32_t min_x_position = 0 * STEPS_PER_MM_X;
 int32_t min_y_position = 0 * STEPS_PER_MM_Y;
@@ -860,6 +860,9 @@ void motion_task(void *arg) {
 
             mcpwm_timer_start_stop(timer1, MCPWM_TIMER_START_NO_STOP);
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            if (gcode_task_handle != NULL) {
+                xTaskNotifyGive(gcode_task_handle);
+            }
         }
     }
 }
