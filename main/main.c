@@ -1,5 +1,5 @@
 
-#include "motor_system.h"
+#include "SDstorage.h"
 
 #include "esp_log.h"
 
@@ -9,13 +9,30 @@ void app_main(void)
 {
     
 
-    init_motors();
-    move_to_base();
-    while(!x_limit_set || !y_limit_set){
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    if (!initStorage()) {
+        ESP_LOGE(TAG, "Storage init failed");
+        return;
     }
-    move_to_position(90, 90, -20);
-    move_to_position(0, 0, 0);
+
+    init_motors();
+
+    // Запускаем G-code асинхронно
+    xTaskCreatePinnedToCore(
+        gcode_execution_task,
+        "gcode_task",
+        4096,
+        NULL,
+        5,
+        NULL,
+        0
+    );
+
+    // Основной цикл свободен
+    while(1) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        get_position();
+        ESP_LOGW("pos: ", "%f, %f, %f", current_x_position, current_y_position, current_z_position);
+    }
     // move_to_position(-20, -10, 0);
 
     // move_to_base();
@@ -69,11 +86,11 @@ void app_main(void)
     // step_motor_move(&motor_x, 10000, 1, 500);
     // step_motor_move(&motor_y, 15000, 1, 2000);
     // step_motor_move(&motor_z, 100000, 0, 100);
-    while(1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        // get_position();
-        // ESP_LOGW("pos: ", "%f, %f, %f", current_x_position, current_y_position, current_z_position);
-    }
+    // while(1) {
+    //     vTaskDelay(pdMS_TO_TICKS(1000));
+    //     // get_position();
+    //     // ESP_LOGW("pos: ", "%f, %f, %f", current_x_position, current_y_position, current_z_position);
+    // }
 }
 
 
