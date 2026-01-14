@@ -6,7 +6,7 @@
 
 
 static bool isr_service_installed = false;
-
+TaskHandle_t motion_task_handle = NULL;
 void ensure_gpio_isr_service(void) {
     if (!isr_service_installed) {
         gpio_install_isr_service(0);
@@ -21,6 +21,7 @@ typedef struct
     void (*task_fn)(void *pvParameters);
 } Super_switch;
 
+int current_pin = 0;
 void button_task(void *pvParameters)
 {
     Super_switch *lim_switch = (Super_switch *)pvParameters;
@@ -29,12 +30,18 @@ void button_task(void *pvParameters)
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         if (gpio_get_level(lim_switch->switch_pin) == 0)
         {
-            char tag[10];
+           char tag[10];
             snprintf(tag, sizeof(tag), "SW%d", lim_switch->switch_pin);
             ESP_LOGI(tag, "Button pressed");
-            // ESP_LOGI(lim_switch->switch_pin, "Button pressed");
+
             gpio_intr_disable(lim_switch->switch_pin);
-        }
+
+            // Отправляем номер пина в очередь аварийной остановки
+            current_pin = lim_switch->switch_pin;
+
+            xTaskNotifyGive(motion_task_handle);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        } 
     }
 }
 
@@ -71,8 +78,10 @@ void init_switch(Super_switch *limit_switch, gpio_num_t pin)
     limit_switch->switch_handle = NULL;
     limit_switch->task_fn = button_task; // & не нужен для функций
 
-    gpio_switch_init(limit_switch);
+    
 
     // Исправлено: pvParameters = limit_switch, pxCreatedTask = &limit_switch->switch_handle
     xTaskCreate(button_task, "btn_task", 2048, limit_switch, 5, &limit_switch->switch_handle);
+
+    gpio_switch_init(limit_switch);
 }

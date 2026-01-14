@@ -415,6 +415,7 @@
 #include "hal/gpio_ll.h"
 #include "hal/gpio_types.h"
 #include "esp_log.h"
+#include "interrupt_switch.h"
 
 #define DIR_PIN_X GPIO_NUM_18
 #define STEP_PIN_X GPIO_NUM_19
@@ -425,13 +426,22 @@
 #define DIR_PIN_Z GPIO_NUM_22
 #define STEP_PIN_Z GPIO_NUM_23
 
-#define DEFAULT_START_PERIOD 100   
-#define MAX_SPEED_PERIOD      45   
+
+#define LIMIT_X GPIO_NUM_11
+#define LIMIT_Y GPIO_NUM_10
+#define LIMIT_Z GPIO_NUM_10
+
+
+// #define DEFAULT_START_PERIOD 600   
+// #define MAX_SPEED_PERIOD      400   
 #define ACCEL_STEPS           300   
 
 #define STEPS_PER_MM_X 1600 
 #define STEPS_PER_MM_Y 1600
 #define STEPS_PER_MM_Z 1600
+
+
+
 
 mcpwm_timer_handle_t timer1;
 mcpwm_timer_config_t timer_cfg;
@@ -463,7 +473,8 @@ int32_t min_z_position = -29 * STEPS_PER_MM_Z;
 volatile bool current_dir_x = true;
 volatile bool current_dir_y = true;
 volatile bool current_dir_z = true;
-
+bool x_limit_set = false;
+bool y_limit_set = false;
 volatile int32_t position_steps_x = 0;
 volatile int32_t position_steps_y = 0;
 volatile int32_t position_steps_z = 0;
@@ -475,7 +486,7 @@ typedef struct {
 } motion_cmd_t;
 
 QueueHandle_t motion_queue;
-TaskHandle_t motion_task_handle = NULL;
+
 
 
 volatile int32_t target_x = 0;
@@ -496,10 +507,12 @@ volatile int32_t dda_dy = 0;
 volatile int32_t dda_dz = 0;
 volatile int32_t dda_N = 0;
 
+uint32_t DEFAULT_START_PERIOD = 600;
+uint32_t MAX_SPEED_PERIOD = 400;
 
 volatile int32_t total_steps = 0;
 volatile int32_t accel_steps = 0;
-volatile uint32_t current_period = DEFAULT_START_PERIOD;
+volatile uint32_t current_period = 600;
 
 
 void motion_task(void *arg);
@@ -709,7 +722,8 @@ void generators_init()
         generator_z,
         MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, comporator_z, MCPWM_GEN_ACTION_LOW)));
 }
-
+Super_switch limit_x_switch;
+Super_switch limit_y_switch;
 void init_motors()
 {
     gpios_init();
@@ -718,9 +732,14 @@ void init_motors()
     comporators_init();
     generators_init();
 
+    
+    init_switch(&limit_x_switch, GPIO_NUM_10);
+    init_switch(&limit_y_switch, GPIO_NUM_11);
+
     motion_queue = xQueueCreate(20, sizeof(motion_cmd_t));
     assert(motion_queue);
 
+    
     xTaskCreatePinnedToCore(
         motion_task,
         "motion_task",
@@ -739,15 +758,52 @@ void get_position(void) {
 }
 
 void move_to_position(float x, float y, float z) {
+    DEFAULT_START_PERIOD = 100;
+    MAX_SPEED_PERIOD = 45;
     motion_cmd_t cmd = { .x_mm = x, .y_mm = y, .z_mm = z };
     xQueueSend(motion_queue, &cmd, portMAX_DELAY);
+}
+
+
+void move_to_base(){
+    DEFAULT_START_PERIOD = 200;
+    MAX_SPEED_PERIOD = 100;
+    x_limit_set = false;
+    y_limit_set = false;
+    min_x_position = -150 * STEPS_PER_MM_X;
+    min_y_position = -150 * STEPS_PER_MM_Y;
+    // min_z_position = -150 * STEPS_PER_MM_Z;
+
+    motion_cmd_t cmd_x = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd_x, portMAX_DELAY);
+    motion_cmd_t cmd_y = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd_y, portMAX_DELAY);
+    // motion_cmd_t cmd_z = { .x_mm = 0, .y_mm = 0, .z_mm = 100}; //invert
+    // xQueueSend(motion_queue, &cmd_z, portMAX_DELAY);
 }
 
 void motion_task(void *arg) {
     motion_cmd_t cmd;
     while (1) {
+        if(current_pin != 0){
+            if(current_pin == LIMIT_X){
+                min_x_position = 0 * STEPS_PER_MM_X;
+                position_steps_x = 0;
+                current_x_position = 0;
+                x_limit_set = true;
+            }
+            if(current_pin == LIMIT_Y){
+                min_y_position = 0 * STEPS_PER_MM_Y;
+                position_steps_y = 0;
+                current_y_position = 0;
+                y_limit_set = true;
+            }
+            mcpwm_timer_start_stop(timer1, MCPWM_TIMER_STOP_FULL);
+            current_pin = 0; // сброс
+            continue;
+        }
         if (xQueueReceive(motion_queue, &cmd, portMAX_DELAY) == pdTRUE) {
-
+            
             float curr_x = (float)position_steps_x / STEPS_PER_MM_X;
             float curr_y = (float)position_steps_y / STEPS_PER_MM_Y;
             float curr_z = (float)position_steps_z / STEPS_PER_MM_Z;

@@ -8,11 +8,18 @@
   "idf.port": "/dev/tty.usbmodem101",
   "idf.toolsPath": "/Users/ponchik/.espressif",
   "idf.customExtraVars": {
-    "IDF_TARGET": "esp32c6"
+    "IDF_TARGET": "esp32c6",
+    "OPENOCD_USB_ADAPTER_LOCATION": "0-1"
   },
   "idf.flashType": "JTAG",
   "C_Cpp.default.compilerPath": "/usr/bin/clang",
   "files.associations": {
     "time.h": "c"
-  }
+  },
+  "clangd.path": "/Users/ponchik/.espressif/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/Users/ponchik/Documents/dev/esp/esp-cnc/build"
+  ]
 }
