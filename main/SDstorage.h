@@ -185,7 +185,17 @@ void gcode_execution_task(void *arg)
     vTaskDelete(NULL);
 }
 
-
+void begin_read_gcode(){
+    xTaskCreatePinnedToCore(
+        gcode_execution_task,
+        "gcode_task",
+        4096,
+        NULL,
+        5,
+        NULL,
+        0
+    );
+}
 
 // #define WIFI_SSID "Redmi"
 // #define WIFI_PASS "12345678"
