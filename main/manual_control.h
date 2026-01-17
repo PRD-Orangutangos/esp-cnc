@@ -1,5 +1,5 @@
 
-#include "motor_system.h"
+#include "axis_system.h"
 #include "esp_http_server.h"
 #include "cJSON.h"
 
@@ -40,7 +40,6 @@ static esp_err_t ws_handler(httpd_req_t *req) {
         return ret;
     }
 
-    // Случай 1: клиент прислал "get_pos" (простая строка)
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT && ws_pkt.len == 7 && strncmp((char*)buf, "get_pos", 7) == 0) {
         get_position();
         cJSON *obj = cJSON_CreateObject();
@@ -108,7 +107,6 @@ static esp_err_t ws_handler(httpd_req_t *req) {
                 current_z_position = 0;
                 z_limit_set = true;
             }
-            // stop-команды (cmd3, cmd6, cmd9) — без движения
         }
 
         cJSON_Delete(root);

@@ -7,8 +7,7 @@
 
 #include "server.h"
 #include "wifi.h"
-
-
+// #include "drivers/motor.h"
 
 
 // void app_main(void)P
@@ -37,27 +36,10 @@
     
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void app_main(void)
 {
-   
-    init_motors();
+    // motor_init();
+    init_axis_system();
 
     wifi_init();
     server = start_webserver(); // важно: присваиваем глобальной переменной

@@ -3,10 +3,14 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-
+#define LIMIT_X GPIO_NUM_11
+#define LIMIT_Y GPIO_NUM_10
+#define LIMIT_Z GPIO_NUM_0
 
 static bool isr_service_installed = false;
+
 TaskHandle_t motion_task_handle = NULL;
+
 void ensure_gpio_isr_service(void) {
     if (!isr_service_installed) {
         gpio_install_isr_service(0);
@@ -76,11 +80,8 @@ void init_switch(Super_switch *limit_switch, gpio_num_t pin)
 {
     limit_switch->switch_pin = pin;
     limit_switch->switch_handle = NULL;
-    limit_switch->task_fn = button_task; // & не нужен для функций
+    limit_switch->task_fn = button_task; 
 
-    
-
-    // Исправлено: pvParameters = limit_switch, pxCreatedTask = &limit_switch->switch_handle
     xTaskCreate(button_task, "btn_task", 2048, limit_switch, 5, &limit_switch->switch_handle);
 
     gpio_switch_init(limit_switch);

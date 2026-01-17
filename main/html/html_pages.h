@@ -3,7 +3,7 @@
 
 
 
-static const char upload_page[]=
+static char upload_page[]=
 "<!DOCTYPE html>"
 "<html>"
 "<head>"
@@ -211,7 +211,7 @@ static const char upload_page[]=
 // "  </script>\n"
 // "</body>\n"
 // "</html>";
-static const char main_page[] =
+static char main_page[] =
 "<!DOCTYPE html>\n"
 "<html>\n"
 "<head>\n"

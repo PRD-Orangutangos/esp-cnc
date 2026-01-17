@@ -4,8 +4,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <math.h>
-#include "hal/gpio_ll.h"
-#include "hal/gpio_types.h"
 #include "esp_log.h"
 #include "interrupt_switch.h"
 
@@ -378,7 +376,7 @@ void move_to_base(){
 void motion_task(void *arg) {
     motion_cmd_t cmd;
     while (1) {
-        if(current_pin != 0){
+        if(current_pin != -1){
             if(current_pin == LIMIT_X){// need to change pins definition
                 min_x_position = 0 * STEPS_PER_MM_X;
                 position_steps_x = 0;
@@ -399,7 +397,7 @@ void motion_task(void *arg) {
                 z_limit_set = true;
             }
             mcpwm_timer_start_stop(timer1, MCPWM_TIMER_STOP_FULL);
-            current_pin = 0; // сброс
+            current_pin = -1; // сброс
             continue;
         }
         if (xQueueReceive(motion_queue, &cmd, portMAX_DELAY) == pdTRUE) {
