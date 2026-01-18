@@ -52,7 +52,7 @@ void app_main(void)
         vTaskDelay(pdMS_TO_TICKS(1000));
         ESP_LOGW("info:", "now is basing...");
     }
-    begin_read_gcode();
+    // begin_read_gcode();
 
     wifi_init();
     server = start_webserver(); // важно: присваиваем глобальной переменной

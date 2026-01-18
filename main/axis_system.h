@@ -56,11 +56,12 @@ void move_to_base(){
     x_axis.min_steps = -150 * STEPS_PER_MM_X;
     y_axis.min_steps = -150 * STEPS_PER_MM_Y;
     // min_z_position = -150 * STEPS_PER_MM_Z;
-
-    motion_cmd_t cmd_x = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
-    xQueueSend(motion_queue, &cmd_x, portMAX_DELAY);
-    motion_cmd_t cmd_y = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
-    xQueueSend(motion_queue, &cmd_y, portMAX_DELAY);
+    motion_cmd_t cmd1 = { .x_mm = 5, .y_mm = 5, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd1, portMAX_DELAY);
+    motion_cmd_t cmd2 = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd2, portMAX_DELAY);
+    motion_cmd_t cmd3 = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd3, portMAX_DELAY);
     // motion_cmd_t cmd_z = { .x_mm = 0, .y_mm = 0, .z_mm = 100}; //invert
     // xQueueSend(motion_queue, &cmd_z, portMAX_DELAY);
 }
