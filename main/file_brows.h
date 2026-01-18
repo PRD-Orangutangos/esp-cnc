@@ -1,10 +1,11 @@
+#pragma once
+
 #include <dirent.h>
 #include <sys/stat.h>
 #include "esp_http_server.h"
 #include <string.h>
 #include <dirent.h>
-
-char selected_gcode_file[128] = {0};
+#include "data.h"
 static esp_err_t start_handler(httpd_req_t *req)
 {
     char buf[128];

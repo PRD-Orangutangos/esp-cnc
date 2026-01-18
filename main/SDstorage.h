@@ -10,6 +10,7 @@
 #include "errno.h"
 #include "gcode_parse.h"
 #include "axis_system.h"
+#include "data.h"
 #define PIN_NUM_MISO 6
 #define PIN_NUM_MOSI 4
 #define PIN_NUM_CLK  5
@@ -148,9 +149,13 @@ void gcode_execution_task(void *arg)
 {
     gcode_task_handle = xTaskGetCurrentTaskHandle();  // сохраняем handle
 
-    FILE* f = fopen("/sd/cnc.nc", "r");
+    // Формируем путь к выбранному файлу
+    char path[132];  // увеличенный буфер для безопасности
+    snprintf(path, sizeof(path), "/sd/%s", selected_gcode_file);
+
+    FILE* f = fopen(path, "r");
     if (!f) {
-        ESP_LOGE(TAG, "G-code file not found");
+        ESP_LOGE(TAG, "G-code file not found: %s", path);
         gcode_task_handle = NULL;
         vTaskDelete(NULL);
         return;
@@ -160,7 +165,6 @@ void gcode_execution_task(void *arg)
     gcode_command_t cmd;
 
     while (fgets(line, sizeof(line), f) != NULL) {
-
         parse_gcode_line(line, &cmd);
 
         if (strcmp(cmd.cmd, "COMMENT") == 0) continue;
