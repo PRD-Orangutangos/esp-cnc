@@ -1,8 +1,11 @@
+#pragma once
+
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-
+#include "drivers/axis.h"
+#include "drivers/my_timer.h"
 #define LIMIT_X GPIO_NUM_11
 #define LIMIT_Y GPIO_NUM_10
 #define LIMIT_Z GPIO_NUM_0
@@ -86,3 +89,30 @@ void init_switch(Super_switch *limit_switch, gpio_num_t pin)
 
     gpio_switch_init(limit_switch);
 }
+
+void check_limit_switches(){
+    switch (current_pin)
+    {
+    case LIMIT_X:
+        setup_axis(&x_axis);
+        break;
+    case LIMIT_Y:
+        setup_axis(&y_axis);
+        break;
+    case LIMIT_Z:
+        z_axis.max_steps = 20 * STEPS_PER_MM_Z;
+        z_axis.min_steps = (-5) * STEPS_PER_MM_Z;
+        z_axis.steps_position = 0;
+        z_axis.current_position = 0;
+        z_axis.limit_set = true;
+        break;
+    default:
+        break;
+    }
+    
+    mcpwm_timer_start_stop(motor_timer.timer, MCPWM_TIMER_STOP_FULL);
+    current_pin = -1;
+}
+
+Super_switch limit_x_switch;
+Super_switch limit_y_switch;

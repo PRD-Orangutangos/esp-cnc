@@ -7,13 +7,16 @@
 
 static esp_err_t ws_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
-        ESP_LOGI(TAG, "Клиент подключился");
-        x_limit_set = false;
-        y_limit_set = false;
-        z_limit_set = false;
-        position_steps_x = 0;
-        position_steps_y = 0;
-        position_steps_z = 0;
+        ESP_LOGI(TAG, "Connected!");
+
+        x_axis.limit_set = false;
+        y_axis.limit_set = false;
+        z_axis.limit_set = false;
+
+        x_axis.steps_position = 0;
+        y_axis.steps_position = 0;
+        z_axis.steps_position = 0;
+
         return ESP_OK;
     }
 
@@ -43,9 +46,9 @@ static esp_err_t ws_handler(httpd_req_t *req) {
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT && ws_pkt.len == 7 && strncmp((char*)buf, "get_pos", 7) == 0) {
         get_position();
         cJSON *obj = cJSON_CreateObject();
-        cJSON_AddNumberToObject(obj, "x", current_x_position);
-        cJSON_AddNumberToObject(obj, "y", current_y_position);
-        cJSON_AddNumberToObject(obj, "z", current_z_position);
+        cJSON_AddNumberToObject(obj, "x", x_axis.current_position);
+        cJSON_AddNumberToObject(obj, "y", y_axis.current_position);
+        cJSON_AddNumberToObject(obj, "z", z_axis.current_position);
         char *json_str = cJSON_PrintUnformatted(obj);
         cJSON_Delete(obj);
 
@@ -77,35 +80,29 @@ static esp_err_t ws_handler(httpd_req_t *req) {
         float step = step_obj ? (float)step_obj->valuedouble : 5.0f;
 
         get_position();
-
+        
         if (cmd) {
             if (strcmp(cmd, "cmd1") == 0) {
-                move_to_position(current_x_position + step, current_y_position, current_z_position);
+                move_to_position(x_axis.current_position + step, y_axis.current_position, z_axis.current_position);
             } else if (strcmp(cmd, "cmd2") == 0) {
-                move_to_position(current_x_position - step, current_y_position, current_z_position);
+                move_to_position(x_axis.current_position - step, y_axis.current_position, z_axis.current_position);
             } else if (strcmp(cmd, "cmd4") == 0) {
-                move_to_position(current_x_position, current_y_position + step, current_z_position);
+                move_to_position(x_axis.current_position, y_axis.current_position + step, z_axis.current_position);
             } else if (strcmp(cmd, "cmd5") == 0) {
-                move_to_position(current_x_position, current_y_position - step, current_z_position);
+                move_to_position(x_axis.current_position, y_axis.current_position - step, z_axis.current_position);
             } else if (strcmp(cmd, "cmd7") == 0) {
-                move_to_position(current_x_position, current_y_position, current_z_position + step);
+                move_to_position(x_axis.current_position, y_axis.current_position, z_axis.current_position + step);
             } else if (strcmp(cmd, "cmd8") == 0) {
-                move_to_position(current_x_position, current_y_position, current_z_position - step);
+                move_to_position(x_axis.current_position, y_axis.current_position, z_axis.current_position - step);
             }else if (strcmp(cmd, "cmd3") == 0) {
-                min_x_position = 0 * STEPS_PER_MM_X;
-                position_steps_x = 0;
-                current_x_position = 0;
-                x_limit_set = true;
+                setup_axis(&x_axis);
             }else if (strcmp(cmd, "cmd6") == 0) {
-                min_y_position = 0 * STEPS_PER_MM_Y;
-                position_steps_y = 0;
-                current_y_position = 0;
-                y_limit_set = true;
+                setup_axis(&y_axis);
             }else if (strcmp(cmd, "cmd9") == 0) {
-                min_z_position = -5 * STEPS_PER_MM_Z;
-                position_steps_z = 0;
-                current_z_position = 0;
-                z_limit_set = true;
+                z_axis.min_steps = -5 * STEPS_PER_MM_Z;
+                z_axis.steps_position = 0;
+                z_axis.current_position = 0;
+                z_axis.limit_set = true;
             }
         }
 

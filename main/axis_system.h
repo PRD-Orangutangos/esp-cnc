@@ -1,3 +1,5 @@
+#pragma once
+
 
 #include "driver/mcpwm_prelude.h"
 #include "driver/gpio.h"
@@ -8,43 +10,11 @@
 #include "interrupt_switch.h"
 #include "drivers/axis.h"
 
-// #define DIR_PIN_X GPIO_NUM_18
-// #define STEP_PIN_X GPIO_NUM_19
-
-// #define DIR_PIN_Y GPIO_NUM_20
-// #define STEP_PIN_Y GPIO_NUM_21
-
-// #define DIR_PIN_Z GPIO_NUM_22
-// #define STEP_PIN_Z GPIO_NUM_23
-
-
-
 
 #define ACCEL_STEPS           300   
 
 static TaskHandle_t gcode_task_handle = NULL;  // ← глобальный
 
-float current_x_position = 0;
-float current_y_position = 0;
-float current_z_position = 0;
-
-int32_t max_x_position = 100 * STEPS_PER_MM_X;
-int32_t max_y_position = 100 * STEPS_PER_MM_Y;
-int32_t max_z_position = 30 * STEPS_PER_MM_Z;
-
-int32_t min_x_position = 0 * STEPS_PER_MM_X;
-int32_t min_y_position = 0 * STEPS_PER_MM_Y;
-int32_t min_z_position = -29 * STEPS_PER_MM_Z;
-
-volatile bool current_dir_x = true;
-volatile bool current_dir_y = true;
-volatile bool current_dir_z = true;
-bool x_limit_set = false;
-bool y_limit_set = false;
-bool z_limit_set = false;
-volatile int32_t position_steps_x = 0;
-volatile int32_t position_steps_y = 0;
-volatile int32_t position_steps_z = 0;
 
 typedef struct {
     float x_mm;
@@ -55,25 +25,6 @@ typedef struct {
 QueueHandle_t motion_queue;
 
 
-
-volatile int32_t target_x = 0;
-volatile int32_t target_y = 0;
-volatile int32_t target_z = 0;
-
-
-volatile int32_t done_x = 0;
-volatile int32_t done_y = 0;
-volatile int32_t done_z = 0;
-
-
-volatile int32_t dda_err_x = 0;
-volatile int32_t dda_err_y = 0;
-volatile int32_t dda_err_z = 0;
-volatile int32_t dda_dx = 0;
-volatile int32_t dda_dy = 0;
-volatile int32_t dda_dz = 0;
-volatile int32_t dda_N = 0;
-
 uint32_t DEFAULT_START_PERIOD = 600;
 uint32_t MAX_SPEED_PERIOD = 400;
 
@@ -82,23 +33,12 @@ volatile int32_t accel_steps = 0;
 volatile uint32_t current_period = 600;
 
 
-
-
-
-
-
-
-
-my_timer_t motor_timer;
-Super_switch limit_x_switch;
-Super_switch limit_y_switch;
-
 void motion_task(void *arg);
 
 void get_position(void) {
-    current_x_position = (float)position_steps_x / STEPS_PER_MM_X;
-    current_y_position = (float)position_steps_y / STEPS_PER_MM_Y;
-    current_z_position = (float)position_steps_z / STEPS_PER_MM_Z;
+    x_axis.current_position = (float)x_axis.steps_position / STEPS_PER_MM_X;
+    y_axis.current_position = (float)y_axis.steps_position / STEPS_PER_MM_Y;
+    z_axis.current_position = (float)z_axis.steps_position / STEPS_PER_MM_Z;
 }
 
 void move_to_position(float x, float y, float z) {
@@ -108,33 +48,44 @@ void move_to_position(float x, float y, float z) {
     xQueueSend(motion_queue, &cmd, portMAX_DELAY);
 }
 
+void move_to_base(){
+    DEFAULT_START_PERIOD = 200;
+    MAX_SPEED_PERIOD = 100;
+    x_axis.limit_set = false;
+    y_axis.limit_set = false;
+    x_axis.min_steps = -150 * STEPS_PER_MM_X;
+    y_axis.min_steps = -150 * STEPS_PER_MM_Y;
+    // min_z_position = -150 * STEPS_PER_MM_Z;
+
+    motion_cmd_t cmd_x = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd_x, portMAX_DELAY);
+    motion_cmd_t cmd_y = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
+    xQueueSend(motion_queue, &cmd_y, portMAX_DELAY);
+    // motion_cmd_t cmd_z = { .x_mm = 0, .y_mm = 0, .z_mm = 100}; //invert
+    // xQueueSend(motion_queue, &cmd_z, portMAX_DELAY);
+}
+
 bool IRAM_ATTR timer_callback(
     mcpwm_timer_handle_t timer,
     const mcpwm_timer_event_data_t *edata,
     void *user_ctx
 ) {
-    bool step_x = false, step_y = false, step_z = false;
+
+    // if (check_done(&x_axis) && check_done(&y_axis) && check_done(&z_axis)) {
+    //     goto stop_motion;
+    // }
+
+    // --- DDA шаг ---
+    check_and_step(&x_axis);
+    check_and_step(&y_axis);
+    check_and_step(&z_axis);
 
     if (check_done(&x_axis) && check_done(&y_axis) && check_done(&z_axis)) {
         goto stop_motion;
     }
-
-    // --- DDA шаг ---
-    dda_step(&x_axis);
-    dda_step(&y_axis);
-    dda_step(&z_axis);
-
-    step_x = need_step(&x_axis);
-    step_y = need_step(&y_axis);
-    step_z = need_step(&z_axis);
-
-    make_step(step_x, &motor_x);
-    make_step(step_y, &motor_y);
-    make_step(step_z, &motor_z);
     
-
     // --- Управление скоростью (трапеция) ---
-    int32_t steps_done = (int32_t)MAX(done_x, MAX(done_y, done_z));
+    int32_t steps_done = (int32_t)MAX(x_axis.done_position, MAX(y_axis.done_position, z_axis.done_position));
     int32_t steps_to_go = total_steps - steps_done;
 
     uint32_t new_period = current_period;
@@ -167,9 +118,9 @@ bool IRAM_ATTR timer_callback(
         set_speed(&motor_z, new_period);
     }
 
-    if (done_x >= target_x && done_y >= target_y && done_z >= target_z) {
-        goto stop_motion;
-    }
+    // if (check_done(&x_axis) && check_done(&y_axis) && check_done(&z_axis)) {
+    //     goto stop_motion;
+    // }
 
     return true;
 
@@ -214,11 +165,8 @@ void init_axis_system(){
 void basing_axis(){
     DEFAULT_START_PERIOD = 200;
     MAX_SPEED_PERIOD = 100;
-    x_limit_set = false;
-    y_limit_set = false;
-    min_x_position = -150 * STEPS_PER_MM_X;
-    min_y_position = -150 * STEPS_PER_MM_Y;
-    // min_z_position = -150 * STEPS_PER_MM_Z;
+    x_axis.limit_set = false;
+    y_axis.limit_set = false;
 
     motion_cmd_t cmd_x = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
     xQueueSend(motion_queue, &cmd_x, portMAX_DELAY);
@@ -232,90 +180,67 @@ void motion_task(void *arg) {
     motion_cmd_t cmd;
     while (1) {
         if(current_pin != -1){
-            if(current_pin == LIMIT_X){
-                min_x_position = 0 * STEPS_PER_MM_X;
-                position_steps_x = 0;
-                current_x_position = 0;
-                x_limit_set = true;
-            }
-            if(current_pin == LIMIT_Y){
-                min_y_position = 0 * STEPS_PER_MM_Y;
-                position_steps_y = 0;
-                current_y_position = 0;
-                y_limit_set = true;
-            }
-            if(current_pin == LIMIT_Z){
-                min_z_position = -5 * STEPS_PER_MM_Z;
-                max_z_position = 0 * STEPS_PER_MM_Z;
-                position_steps_z = 0;
-                current_z_position = 0;
-                z_limit_set = true;
-            }
-            mcpwm_timer_start_stop(motor_timer.timer, MCPWM_TIMER_STOP_FULL);
-            current_pin = -1; // сброс
+            check_limit_switches();
             continue;
         }
         if (xQueueReceive(motion_queue, &cmd, portMAX_DELAY) == pdTRUE) {
             
-            float curr_x = (float)position_steps_x / STEPS_PER_MM_X;
-            float curr_y = (float)position_steps_y / STEPS_PER_MM_Y;
-            float curr_z = (float)position_steps_z / STEPS_PER_MM_Z;
 
-            float dx = cmd.x_mm - curr_x;
-            float dy = cmd.y_mm - curr_y;
-            float dz = cmd.z_mm - curr_z;
+            int32_t delta_x = (int32_t)roundf(cmd.x_mm * STEPS_PER_MM_X) - x_axis.steps_position;
+            int32_t delta_y = (int32_t)roundf(cmd.y_mm * STEPS_PER_MM_Y) - y_axis.steps_position;
+            int32_t delta_z = (int32_t)roundf(cmd.z_mm * STEPS_PER_MM_Z) - z_axis.steps_position;
 
-            int32_t target_steps_x = position_steps_x + (int32_t)roundf(dx * STEPS_PER_MM_X);
-            int32_t target_steps_y = position_steps_y + (int32_t)roundf(dy * STEPS_PER_MM_Y);
-            int32_t target_steps_z = position_steps_z + (int32_t)roundf(dz * STEPS_PER_MM_Z);
-            if (x_limit_set) {
-                if (target_steps_x > max_x_position || target_steps_x < min_x_position) {
-                    ESP_LOGE("motion", "X out of bounds!");
-                    continue;
-                }
+            int32_t target_steps_x = x_axis.steps_position + delta_x;
+            int32_t target_steps_y = y_axis.steps_position + delta_y;
+            int32_t target_steps_z = z_axis.steps_position + delta_z;
+
+            if (!check_bounds_ok(&x_axis, target_steps_x) ||
+                !check_bounds_ok(&y_axis, target_steps_y) ||
+                !check_bounds_ok(&z_axis, target_steps_z)) {
+                continue;
             }
 
-            // Проверяем Y, если его лимит установлен
-            if (y_limit_set) {
-                if (target_steps_y > max_y_position || target_steps_y < min_y_position) {
-                    ESP_LOGE("motion", "Y out of bounds!");
-                    continue;
-                }
-            }
-            if (z_limit_set) {
-            // Z проверяем всегда (если нужно)
-                if (target_steps_z > max_z_position || target_steps_z < min_z_position) {
-                    ESP_LOGE("motion", "Z out of bounds!");
-                    continue;
-                }
-            }   
-            bool dir_x = (dx >= 0);
-            bool dir_y = (dy >= 0);
-            bool dir_z = (dz >= 0);
+            bool dir_x = (delta_x >= 0);
+            bool dir_y = (delta_y >= 0);
+            bool dir_z = (delta_z >= 0);
 
-            int32_t steps_x = abs((int32_t)roundf(dx * STEPS_PER_MM_X));
-            int32_t steps_y = abs((int32_t)roundf(dy * STEPS_PER_MM_Y));
-            int32_t steps_z = abs((int32_t)roundf(dz * STEPS_PER_MM_Z));
+            int32_t steps_x = abs(delta_x);
+            int32_t steps_y = abs(delta_y);
+            int32_t steps_z = abs(delta_z);
 
-            gpio_set_level(DIR_PIN_X, dir_x);
+            gpio_set_level(DIR_PIN_X, dir_x); // need to implement like set_direction(*motor, dir)
             gpio_set_level(DIR_PIN_Y, dir_y);
             gpio_set_level(DIR_PIN_Z, !dir_z); // инверсия Z
 
-            current_dir_x = dir_x;
-            current_dir_y = dir_y;
-            current_dir_z = dir_z;
 
-            target_x = steps_x;
-            target_y = steps_y;
-            target_z = steps_z;
+            x_axis.current_direction = dir_x;
+            y_axis.current_direction = dir_y;
+            z_axis.current_direction = dir_z;
 
-            done_x = done_y = done_z = 0;
-            dda_dx = target_x; dda_dy = target_y; dda_dz = target_z;
-            dda_N = MAX(target_x, MAX(target_y, target_z));
-            dda_err_x = dda_err_y = dda_err_z = 0;
+            x_axis.target_position = steps_x;
+            y_axis.target_position = steps_y;
+            z_axis.target_position = steps_z;
+
+            x_axis.done_position = 0;
+            y_axis.done_position = 0;
+            z_axis.done_position = 0;
+
+            x_axis.dda_d_pos = steps_x;
+            y_axis.dda_d_pos = steps_y;
+            z_axis.dda_d_pos = steps_z;
+
+            int32_t dda_NN = MAX(steps_x, MAX(steps_y, steps_z));
+
+            x_axis.dda_N = dda_NN;
+            y_axis.dda_N = dda_NN;
+            z_axis.dda_N = dda_NN;
+
+            x_axis.dda_err_pos = 0;
+            y_axis.dda_err_pos = 0;
+            z_axis.dda_err_pos = 0;
 
             // Инициализация профиля скорости
-            total_steps = dda_N;
+            total_steps = dda_NN;
             accel_steps = (total_steps < 2 * ACCEL_STEPS) ? (total_steps / 2) : ACCEL_STEPS;
             current_period = DEFAULT_START_PERIOD;
             mcpwm_timer_set_period(motor_timer.timer, current_period);
@@ -325,6 +250,7 @@ void motion_task(void *arg) {
             set_speed(&motor_z, current_period);
 
             mcpwm_timer_start_stop(motor_timer.timer, MCPWM_TIMER_START_NO_STOP);
+
             ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             if (gcode_task_handle != NULL) {
                 xTaskNotifyGive(gcode_task_handle);

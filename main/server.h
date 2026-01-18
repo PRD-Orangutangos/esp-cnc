@@ -2,6 +2,7 @@
 #include "esp_http_server.h"
 #include "html/html_pages.h"
 #include "manual_control.h"
+#include "file_brows.h"
 #define TAG "esp-cnc"
 
 static httpd_handle_t server = NULL;
@@ -34,7 +35,11 @@ static httpd_handle_t start_webserver(void)
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &ws);
         httpd_register_uri_handler(server, &any);
-
+        
+        httpd_register_uri_handler(server, &files_uri);
+        httpd_register_uri_handler(server, &root_uri);
+        httpd_register_uri_handler(server, &start_uri);
+        httpd_register_uri_handler(server, &delete_uri);
         return server;
     }
 

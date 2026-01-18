@@ -1,7 +1,10 @@
+#pragma once
+
 #include "driver/mcpwm_prelude.h"
 #include "driver/gpio.h"
 #include "my_timer.h"
 
+// Define step driver pins for each step motor 
 #define DIR_PIN_X GPIO_NUM_18
 #define STEP_PIN_X GPIO_NUM_19
 
@@ -11,7 +14,7 @@
 #define DIR_PIN_Z GPIO_NUM_22
 #define STEP_PIN_Z GPIO_NUM_23
 
-
+// Motor struct for using mcpwm of esp32
 typedef struct{
     gpio_num_t dir_pin;
     gpio_num_t step_pin;
@@ -22,6 +25,7 @@ typedef struct{
     mcpwm_gen_handle_t generator;
 } motor_t;
 
+// Init your motor gpio
 void motor_gpio_init(motor_t *current_motor){
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << current_motor->dir_pin) | (1ULL << current_motor->step_pin),
@@ -35,16 +39,19 @@ void motor_gpio_init(motor_t *current_motor){
     gpio_set_level(current_motor->step_pin, 0);
 }
 
+// Init operator for work with mcpwm
 void motor_operator_init(motor_t *current_motor){
     ESP_ERROR_CHECK(mcpwm_new_operator(&(mcpwm_operator_config_t){.group_id = 0}, &current_motor->operator));
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(current_motor->operator, current_motor->timer));
 }
 
+// Init comporator for work with mcpwm
 void motor_comparator_init(motor_t *current_motor){
     ESP_ERROR_CHECK(mcpwm_new_comparator(current_motor->operator, &(mcpwm_comparator_config_t){}, &current_motor->comparator));
     ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(current_motor->comparator, current_motor->period/ 2));
 }
 
+// Init gemerator for work with mcpwm
 void motor_generator_init(motor_t *current_motor){
     ESP_ERROR_CHECK(mcpwm_new_generator(current_motor->operator, &(mcpwm_generator_config_t){.gen_gpio_num = current_motor->step_pin}, &current_motor->generator));
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(
@@ -55,6 +62,7 @@ void motor_generator_init(motor_t *current_motor){
         MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, current_motor->comparator, MCPWM_GEN_ACTION_LOW)));
 
 }
+// Make step with mcpwm, state set when interpolation calculation occured
 void make_step(bool high_state, motor_t *current_motor){
     if (high_state) {
         mcpwm_generator_set_action_on_timer_event(current_motor->generator,
@@ -67,11 +75,13 @@ void make_step(bool high_state, motor_t *current_motor){
     }
 }
 
+// Set period of timer -> change speed of motor (all motors use equal speed, you can setup it only with different timers, but it bring to you problems with interpolation, you will need syncronization for timers for calculate steps and do it)
 void set_speed(motor_t *current_motor, uint32_t new_speed){
     current_motor->period = new_speed;
     mcpwm_comparator_set_compare_value(current_motor->comparator, current_motor->period / 2);    
 }
 
+// Return new motor with preset of paramentrs 
 motor_t new_motor(my_timer_t *m_timer, gpio_num_t d_pin, gpio_num_t s_pin){
     motor_t new_motor;
     new_motor.dir_pin = d_pin;
