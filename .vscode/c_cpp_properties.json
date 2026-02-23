@@ -1,9 +1,10 @@
 {
-    "configurations": [
-        {
-            "name": "ESP-IDF",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "ESP-IDF",
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+      "compilerPath": "/Users/ponchik/.espressif/tools/riscv32-esp-elf/esp-14.2.0_20251107/riscv32-esp-elf/bin/riscv32-esp-elf-gcc"
+    }
+  ],
+  "version": 4
 }

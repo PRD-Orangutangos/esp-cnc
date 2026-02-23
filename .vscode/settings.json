@@ -15,5 +15,6 @@
     "--compile-commands-dir=/Users/ponchik/Documents/dev/esp/esp-cnc/build"
   ],
   "idf.port": "/dev/tty.usbmodem1101",
-  "idf.flashType": "JTAG"
+  "idf.flashType": "JTAG",
+  "idf.currentSetup": "/Users/ponchik/esp/esp-idf"
 }
