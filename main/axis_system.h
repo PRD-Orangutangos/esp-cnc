@@ -13,7 +13,7 @@
 
 #define ACCEL_STEPS           300   
 
-static TaskHandle_t gcode_task_handle = NULL;  // ← глобальный
+static TaskHandle_t gcode_task_handle = NULL; 
 
 
 typedef struct {
@@ -53,17 +53,19 @@ void move_to_base(){
     MAX_SPEED_PERIOD = 100;
     x_axis.limit_set = false;
     y_axis.limit_set = false;
+    z_axis.limit_set = false;
     x_axis.min_steps = -150 * STEPS_PER_MM_X;
     y_axis.min_steps = -150 * STEPS_PER_MM_Y;
-    // min_z_position = -150 * STEPS_PER_MM_Z;
-    motion_cmd_t cmd1 = { .x_mm = 5, .y_mm = 5, .z_mm = 0 };
+    z_axis.max_steps = 50 * STEPS_PER_MM_Z;
+    z_axis.min_steps = -50 * STEPS_PER_MM_Z;
+    motion_cmd_t cmd1 = { .x_mm = 5, .y_mm = 5, .z_mm = -5 };
     xQueueSend(motion_queue, &cmd1, portMAX_DELAY);
     motion_cmd_t cmd2 = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
     xQueueSend(motion_queue, &cmd2, portMAX_DELAY);
     motion_cmd_t cmd3 = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
     xQueueSend(motion_queue, &cmd3, portMAX_DELAY);
-    // motion_cmd_t cmd_z = { .x_mm = 0, .y_mm = 0, .z_mm = 100}; //invert
-    // xQueueSend(motion_queue, &cmd_z, portMAX_DELAY);
+    motion_cmd_t cmd_4 = { .x_mm = 0, .y_mm = 0, .z_mm = 50}; //invert
+    xQueueSend(motion_queue, &cmd_4, portMAX_DELAY);
 }
 
 bool IRAM_ATTR timer_callback(
@@ -71,11 +73,6 @@ bool IRAM_ATTR timer_callback(
     const mcpwm_timer_event_data_t *edata,
     void *user_ctx
 ) {
-
-    // if (check_done(&x_axis) && check_done(&y_axis) && check_done(&z_axis)) {
-    //     goto stop_motion;
-    // }
-
     // --- DDA шаг ---
     check_and_step(&x_axis);
     check_and_step(&y_axis);
@@ -118,11 +115,6 @@ bool IRAM_ATTR timer_callback(
         set_speed(&motor_y, new_period);
         set_speed(&motor_z, new_period);
     }
-
-    // if (check_done(&x_axis) && check_done(&y_axis) && check_done(&z_axis)) {
-    //     goto stop_motion;
-    // }
-
     return true;
 
 stop_motion:
@@ -148,6 +140,7 @@ void init_axis_system(){
 
     init_switch(&limit_x_switch, LIMIT_X);
     init_switch(&limit_y_switch, LIMIT_Y);
+    init_switch(&limit_z_switch, LIMIT_Z);
 
     motion_queue = xQueueCreate(20, sizeof(motion_cmd_t));
     assert(motion_queue);
@@ -163,19 +156,7 @@ void init_axis_system(){
     );
 }
 
-void basing_axis(){
-    DEFAULT_START_PERIOD = 200;
-    MAX_SPEED_PERIOD = 100;
-    x_axis.limit_set = false;
-    y_axis.limit_set = false;
 
-    motion_cmd_t cmd_x = { .x_mm = -150, .y_mm = 0, .z_mm = 0 };
-    xQueueSend(motion_queue, &cmd_x, portMAX_DELAY);
-    motion_cmd_t cmd_y = { .x_mm = 0, .y_mm = -150, .z_mm = 0 };
-    xQueueSend(motion_queue, &cmd_y, portMAX_DELAY);
-    // motion_cmd_t cmd_z = { .x_mm = 0, .y_mm = 0, .z_mm = 100}; //invert
-    // xQueueSend(motion_queue, &cmd_z, portMAX_DELAY);
-}
 
 void motion_task(void *arg) {
     motion_cmd_t cmd;
@@ -209,7 +190,7 @@ void motion_task(void *arg) {
             int32_t steps_y = abs(delta_y);
             int32_t steps_z = abs(delta_z);
 
-            gpio_set_level(DIR_PIN_X, dir_x); // need to implement like set_direction(*motor, dir)
+            gpio_set_level(DIR_PIN_X, dir_x); 
             gpio_set_level(DIR_PIN_Y, dir_y);
             gpio_set_level(DIR_PIN_Z, !dir_z); // инверсия Z
 

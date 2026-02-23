@@ -17,9 +17,9 @@
 #define STEP_PIN_Z GPIO_NUM_23
 
 
-#define LIMIT_X GPIO_NUM_11
-#define LIMIT_Y GPIO_NUM_10
-#define LIMIT_Z GPIO_NUM_0
+// #define LIMIT_X GPIO_NUM_11
+// #define LIMIT_Y GPIO_NUM_10
+// #define LIMIT_Z GPIO_NUM_0
 
 
 // #define DEFAULT_START_PERIOD 600   

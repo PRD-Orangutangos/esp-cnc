@@ -8,7 +8,7 @@
 #include "drivers/my_timer.h"
 #define LIMIT_X GPIO_NUM_11
 #define LIMIT_Y GPIO_NUM_10
-#define LIMIT_Z GPIO_NUM_0
+#define LIMIT_Z GPIO_NUM_2
 
 static bool isr_service_installed = false;
 
@@ -100,8 +100,8 @@ void check_limit_switches(){
         setup_axis(&y_axis);
         break;
     case LIMIT_Z:
-        z_axis.max_steps = 20 * STEPS_PER_MM_Z;
-        z_axis.min_steps = (-5) * STEPS_PER_MM_Z;
+        z_axis.max_steps = 0 * STEPS_PER_MM_Z;
+        z_axis.min_steps = (-50) * STEPS_PER_MM_Z;
         z_axis.steps_position = 0;
         z_axis.current_position = 0;
         z_axis.limit_set = true;
@@ -116,3 +116,4 @@ void check_limit_switches(){
 
 Super_switch limit_x_switch;
 Super_switch limit_y_switch;
+Super_switch limit_z_switch;
