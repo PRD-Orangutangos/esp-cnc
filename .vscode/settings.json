@@ -16,5 +16,5 @@
   ],
   "idf.port": "/dev/tty.usbmodem1101",
   "idf.flashType": "JTAG",
-  "idf.currentSetup": "/Users/ponchik/esp/esp-idf"
+  "idf.currentSetup": "/Users/ponchik/.espressif/v5.5.3/esp-idf"
 }

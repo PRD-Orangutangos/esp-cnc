@@ -30,7 +30,7 @@ static esp_err_t start_handler(httpd_req_t *req)
     // Запускаем задачу G-code
     begin_read_gcode(); // твоя функция должна использовать selected_gcode_file
 
-    return httpd_resp_sendstr(req, "OK: G-code started");
+    return httpd_resp_sendstr(req, "OK");
 }
 
 static esp_err_t delete_handler(httpd_req_t *req)
@@ -100,7 +100,11 @@ static esp_err_t files_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-
+static esp_err_t work_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/html");
+    return httpd_resp_send(req, work_page, HTTPD_RESP_USE_STRLEN);
+}
 
 static esp_err_t room_handler(httpd_req_t *req)
 {
@@ -112,6 +116,13 @@ httpd_uri_t root_uri = {
     .uri       = "/lol",
     .method    = HTTP_GET,
     .handler   = room_handler,
+    .user_ctx  = NULL
+};
+
+httpd_uri_t work_uri = {
+    .uri       = "/work",
+    .method    = HTTP_GET,
+    .handler   = work_handler,
     .user_ctx  = NULL
 };
 
