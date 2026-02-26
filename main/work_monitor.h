@@ -74,11 +74,14 @@ static esp_err_t ws_handler2(httpd_req_t *req) {
         
         if (cmd) {
             if (strcmp(cmd, "stop") == 0) {
-                ESP_LOGI("loh", "loh stop");
+                // ESP_LOGI("loh", "loh stop");
+                motion_stop();
             } else if (strcmp(cmd, "pause") == 0) {
-                ESP_LOGI("loh", "loh pause");
+                // ESP_LOGI("loh", "loh pause");
+                motion_pause();
             }else if (strcmp(cmd, "start") == 0) {
-                ESP_LOGI("loh", "loh start");
+                // ESP_LOGI("loh", "loh start");
+                motion_resume();
             }
         }
 

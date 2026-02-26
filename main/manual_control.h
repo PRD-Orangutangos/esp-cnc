@@ -9,13 +9,13 @@ static esp_err_t ws_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Connected!");
 
-        x_axis.limit_set = false;
-        y_axis.limit_set = false;
-        z_axis.limit_set = false;
+        // x_axis.limit_set = false;
+        // y_axis.limit_set = false;
+        // z_axis.limit_set = false;
 
-        x_axis.steps_position = 0;
-        y_axis.steps_position = 0;
-        z_axis.steps_position = 0;
+        // x_axis.steps_position = 0;
+        // y_axis.steps_position = 0;
+        // z_axis.steps_position = 0;
 
         return ESP_OK;
     }

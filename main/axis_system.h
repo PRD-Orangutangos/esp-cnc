@@ -12,9 +12,8 @@
 
 
 #define ACCEL_STEPS           300   
-
+volatile bool motion_abort = false;
 static TaskHandle_t gcode_task_handle = NULL; 
-
 
 typedef struct {
     float x_mm;
@@ -73,6 +72,9 @@ bool IRAM_ATTR timer_callback(
     const mcpwm_timer_event_data_t *edata,
     void *user_ctx
 ) {
+    if(motion_abort){
+        goto stop_motion;
+    }
     // --- DDA шаг ---
     check_and_step(&x_axis);
     check_and_step(&y_axis);
@@ -125,7 +127,19 @@ stop_motion:
 }
 
 
+void motion_pause(void)
+{
+    mcpwm_timer_start_stop(motor_timer.timer, MCPWM_TIMER_STOP_FULL);
+}
 
+void motion_resume(void)
+{
+    mcpwm_timer_start_stop(motor_timer.timer, MCPWM_TIMER_START_NO_STOP);
+}
+void motion_stop(void)
+{
+    motion_abort = true;
+}
 void init_axis_system(){
 
     motor_timer = create_timer(timer_callback);
