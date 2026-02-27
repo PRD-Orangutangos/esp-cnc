@@ -138,6 +138,7 @@ void motion_resume(void)
 }
 void motion_stop(void)
 {
+    mcpwm_timer_start_stop(motor_timer.timer, MCPWM_TIMER_START_NO_STOP);
     motion_abort = true;
 }
 void init_axis_system(){
