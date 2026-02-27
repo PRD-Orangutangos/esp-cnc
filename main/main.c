@@ -11,12 +11,12 @@ void app_main(void)
     }
    
     init_axis_system();
-    move_to_base();
+    // move_to_base();
 
-    while(!x_axis.limit_set || !y_axis.limit_set || !z_axis.limit_set){
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        ESP_LOGW("info:", "now is basing...");
-    }
+    // while(!x_axis.limit_set || !y_axis.limit_set || !z_axis.limit_set){
+    //     vTaskDelay(pdMS_TO_TICKS(1000));
+    //     ESP_LOGW("info:", "now is basing...");
+    // }
 
 
     wifi_init();

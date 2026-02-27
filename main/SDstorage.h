@@ -165,6 +165,10 @@ void gcode_execution_task(void *arg)
     gcode_command_t cmd;
 
     while (fgets(line, sizeof(line), f) != NULL) {
+        if(motion_abort){
+            motion_abort = false;
+            break;
+        }
         parse_gcode_line(line, &cmd);
 
         if (strcmp(cmd.cmd, "COMMENT") == 0) continue;

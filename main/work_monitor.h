@@ -5,18 +5,9 @@
 
 #define TAG "esp-cnc"
 
-static esp_err_t ws_handler(httpd_req_t *req) {
+static esp_err_t ws_handler2(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Connected!");
-
-        // x_axis.limit_set = false;
-        // y_axis.limit_set = false;
-        // z_axis.limit_set = false;
-
-        // x_axis.steps_position = 0;
-        // y_axis.steps_position = 0;
-        // z_axis.steps_position = 0;
-
         return ESP_OK;
     }
 
@@ -82,27 +73,15 @@ static esp_err_t ws_handler(httpd_req_t *req) {
         get_position();
         
         if (cmd) {
-            if (strcmp(cmd, "cmd1") == 0) {
-                move_to_position(x_axis.current_position + step, y_axis.current_position, z_axis.current_position);
-            } else if (strcmp(cmd, "cmd2") == 0) {
-                move_to_position(x_axis.current_position - step, y_axis.current_position, z_axis.current_position);
-            } else if (strcmp(cmd, "cmd4") == 0) {
-                move_to_position(x_axis.current_position, y_axis.current_position + step, z_axis.current_position);
-            } else if (strcmp(cmd, "cmd5") == 0) {
-                move_to_position(x_axis.current_position, y_axis.current_position - step, z_axis.current_position);
-            } else if (strcmp(cmd, "cmd7") == 0) {
-                move_to_position(x_axis.current_position, y_axis.current_position, z_axis.current_position + step);
-            } else if (strcmp(cmd, "cmd8") == 0) {
-                move_to_position(x_axis.current_position, y_axis.current_position, z_axis.current_position - step);
-            }else if (strcmp(cmd, "cmd3") == 0) {
-                setup_axis(&x_axis);
-            }else if (strcmp(cmd, "cmd6") == 0) {
-                setup_axis(&y_axis);
-            }else if (strcmp(cmd, "cmd9") == 0) {
-                z_axis.min_steps = -5 * STEPS_PER_MM_Z;
-                z_axis.steps_position = 0;
-                z_axis.current_position = 0;
-                z_axis.limit_set = true;
+            if (strcmp(cmd, "stop") == 0) {
+                // ESP_LOGI("loh", "loh stop");
+                motion_stop();
+            } else if (strcmp(cmd, "pause") == 0) {
+                // ESP_LOGI("loh", "loh pause");
+                motion_pause();
+            }else if (strcmp(cmd, "start") == 0) {
+                // ESP_LOGI("loh", "loh start");
+                motion_resume();
             }
         }
 
@@ -113,10 +92,10 @@ static esp_err_t ws_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-static const httpd_uri_t ws = {
-        .uri        = "/ws",
+static const httpd_uri_t ws2 = {
+        .uri        = "/ws2",
         .method     = HTTP_GET,
-        .handler    = ws_handler,
+        .handler    = ws_handler2,
         .user_ctx   = NULL,
         .is_websocket = true
 };
